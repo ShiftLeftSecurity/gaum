@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/perrito666/bmstrem/db/connection"
 	"github.com/pkg/errors"
 )
 
@@ -71,16 +72,55 @@ func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool) (string,
 	return expresion, q.arguments
 }
 
+// NewExpresionChain returns a new instance of ExpresionChain hooked to the passed DB
+func NewExpresionChain(db connection.DB) *ExpresionChain {
+	return &ExpresionChain{db: db}
+}
+
 // ExpresionChain holds all the atoms for the SQL expresions that make a query and allows to chain
 // more assuming the chaining is valid.
 type ExpresionChain struct {
 	lock          sync.Mutex
 	segments      []querySegmentAtom
 	table         string
-	mainOperation querySegmentAtom
+	mainOperation *querySegmentAtom
 	// only makes sense on insert
 	limit  *querySegmentAtom
 	offset *querySegmentAtom
+
+	db connection.DB
+}
+
+// Clone returns a copy of the ExpresionChain
+func (ec *ExpresionChain) Clone() *ExpresionChain {
+	var limit *querySegmentAtom
+	var offset *querySegmentAtom
+	var mainOperation *querySegmentAtom
+	if ec.limit != nil {
+		eclimit := ec.limit.clone()
+		limit = &eclimit
+	}
+	if ec.offset != nil {
+		ecoffset := ec.offset.clone()
+		offset = &ecoffset
+	}
+	if ec.mainOperation != nil {
+		ecmainOperation := ec.mainOperation.clone()
+		mainOperation = &ecmainOperation
+	}
+	segments := make([]querySegmentAtom, len(ec.segments))
+	for i, s := range ec.segments {
+		segments[i] = s.clone()
+	}
+	return &ExpresionChain{
+		limit:         limit,
+		offset:        offset,
+		segments:      segments,
+		mainOperation: mainOperation,
+		table:         ec.table,
+
+		db: ec.db,
+	}
 }
 
 func (ec *ExpresionChain) setLimit(limit *querySegmentAtom) {
@@ -151,7 +191,7 @@ func (ec *ExpresionChain) Where(expr string, args ...interface{}) *ExpresionChai
 
 // Select set fields to be returned by the final query.
 func (ec *ExpresionChain) Select(fields ...string) *ExpresionChain {
-	ec.mainOperation = querySegmentAtom{
+	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlSelect,
 		expresion: strings.Join(fields, ", "),
 		arguments: nil,
@@ -170,7 +210,7 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 		exprValues[i] = v
 		i++
 	}
-	ec.mainOperation = querySegmentAtom{
+	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlInsert,
 		expresion: strings.Join(exprKeys, ", "),
 		arguments: exprValues,
@@ -181,7 +221,7 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 
 // Update set fields/values for updates.
 func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionChain {
-	ec.mainOperation = querySegmentAtom{
+	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlUpdate,
 		expresion: expr,
 		arguments: args,
@@ -315,6 +355,9 @@ func (ec *ExpresionChain) RenderInsert() (string, []interface{}, error) {
 func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	args := []interface{}{}
 	var query string
+	if ec.mainOperation == nil {
+		return "", nil, errors.Errorf("missing main operation to perform on the db")
+	}
 	// INSERT
 	switch ec.mainOperation.segment {
 	case sqlInsert:
@@ -377,19 +420,4 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	// TODO
 
 	return query, args, nil
-}
-
-// Clone returns a copy of the ExpresionChain
-func (ec *ExpresionChain) Clone() *ExpresionChain {
-	limit := *ec.limit
-	offset := *ec.offset
-	segments := make([]querySegmentAtom, len(ec.segments))
-	for i, s := range ec.segments {
-		segments[i] = s.clone()
-	}
-	return &ExpresionChain{
-		limit:    &limit,
-		offset:   &offset,
-		segments: segments,
-	}
 }
