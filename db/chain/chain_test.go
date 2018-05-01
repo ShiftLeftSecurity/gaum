@@ -25,7 +25,7 @@ func TestExpresionChain_Render(t *testing.T) {
 	}{
 		{
 			name: "basic selection with where",
-			chain: (&ExpresionChain{}).Select([]string{"field1", "field2", "field3"}).
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				Where("field1 > ?", 1).
 				Where("field2 == ?", 2).
@@ -36,7 +36,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with where and join",
-			chain: (&ExpresionChain{}).Select([]string{"field1", "field2", "field3"}).
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				Where("field1 > ?", 1).
 				Where("field2 == ?", 2).
@@ -48,7 +48,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert",
-			chain: (&ExpresionChain{}).Insert([]string{"field1", "field2", "field3"}, []interface{}{"value1", 2, "blah"}).
+			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table"),
 			want:     "INSERT INTO ? (field1, field2, field3) VALUES (?, ?, ?)",
 			wantArgs: []interface{}{"convenient_table", "value1", 2, "blah"},

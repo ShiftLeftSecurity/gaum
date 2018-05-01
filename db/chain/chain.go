@@ -150,7 +150,7 @@ func (ec *ExpresionChain) Where(expr string, args ...interface{}) *ExpresionChai
 }
 
 // Select set fields to be returned by the final query.
-func (ec *ExpresionChain) Select(fields []string) *ExpresionChain {
+func (ec *ExpresionChain) Select(fields ...string) *ExpresionChain {
 	ec.mainOperation = querySegmentAtom{
 		segment:   sqlSelect,
 		expresion: strings.Join(fields, ", "),
@@ -161,12 +161,19 @@ func (ec *ExpresionChain) Select(fields []string) *ExpresionChain {
 }
 
 // Insert set fields/values for insertion.
-func (ec *ExpresionChain) Insert(fields []string, values []interface{}) *ExpresionChain {
-	// TODO: fail somehow if fields and values have different
+func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionChain {
+	exprKeys := make([]string, len(insertPairs))
+	exprValues := make([]interface{}, len(insertPairs))
+	i := 0
+	for k, v := range insertPairs {
+		exprKeys[i] = k
+		exprValues[i] = v
+		i++
+	}
 	ec.mainOperation = querySegmentAtom{
 		segment:   sqlInsert,
-		expresion: strings.Join(fields, ", "),
-		arguments: values,
+		expresion: strings.Join(exprKeys, ", "),
+		arguments: exprValues,
 		sqlBool:   SQLNothing,
 	}
 	return ec
