@@ -19,6 +19,10 @@ type Information struct {
 	UseFallbackTLS    bool        // Try FallbackTLSConfig if connecting with TLSConfig fails. Used for preferring TLS, but allowing unencrypted, or vice-versa
 	FallbackTLSConfig *tls.Config // config for fallback TLS connection (only used if UseFallBackTLS is true)-- nil disables TLS
 
+	// MaxConnPoolConns where applies will be used to determine the maximum amount of connections
+	// a pool can have.
+	MaxConnPoolConns int
+
 	Logger logging.Logger
 }
 
@@ -28,8 +32,13 @@ type DatabaseHandler interface {
 	Open(*Information) (DB, error)
 }
 
+type ResultFetchIter func(interface{}) (bool, func(), error)
+type ResultFetch func(interface{}) error
+
 // DB represents an active database connection.
 type DB interface {
 	// Clone returns a stateful copy of this connection.
 	Clone() DB
+	QueryIter(statement string, args ...interface{}) (ResultFetchIter, error)
+	Query(statement string, args ...interface{}) (ResultFetch, error)
 }

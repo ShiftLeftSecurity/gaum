@@ -123,6 +123,16 @@ func (ec *ExpresionChain) Clone() *ExpresionChain {
 	}
 }
 
+// QueryIter is a convenience function to run the current chain through the db query with iterator.
+func (ec *ExpresionChain) QueryIter(statement string, args ...interface{}) (connection.ResultFetchIter, error) {
+	q, args, err := ec.Render()
+	if err != nil {
+		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
+			errors.Wrap(err, "rendering query to query with iterator")
+	}
+	return ec.db.QueryIter(q, args...)
+}
+
 func (ec *ExpresionChain) setLimit(limit *querySegmentAtom) {
 	ec.lock.Lock()
 	defer ec.lock.Unlock()
@@ -419,5 +429,17 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	// ORDER BY
 	// TODO
 
-	return query, args, nil
+	// TODO support escaping of ?
+	// TODO make this less dirty
+	queryWithArgs := ""
+	argCounter := 1
+	for _, queryChar := range query {
+		if queryChar == '?' {
+			queryWithArgs += fmt.Sprintf("$%d", argCounter)
+			argCounter++
+		} else {
+			queryWithArgs += string(queryChar)
+		}
+	}
+	return queryWithArgs, args, nil
 }
