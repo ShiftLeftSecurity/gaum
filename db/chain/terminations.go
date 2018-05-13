@@ -1,23 +1,22 @@
 package chain
 
-// Find will populate interface with the results of the chain execution, works for Select
-// If the table is missing it will be guessed from the passed type.
-// If the mainOperation is empty a select from * will be attempted and the matchinf fields will
-// fill the passed object.
-// If only one object is passed then a `LIMIT 1` will be assumed.
-func (ec *ExpresionChain) Find(result interface{}) error {
-	return nil
-}
+import (
+	"github.com/perrito666/bmstrem/db/connection"
+	"github.com/pkg/errors"
+)
 
-// RawQuery will execute `query` with `args` arguments and if any rows are returned they will populate
-// `result`.
-// `result` may be nil and in that case returned rows will be ignored.
-func (ec *ExpresionChain) RawQuery(query string, result interface{}, args ...interface{}) error {
-	return nil
+// QueryIter is a convenience function to run the current chain through the db query with iterator.
+func (ec *ExpresionChain) QueryIter(statement string, args ...interface{}) (connection.ResultFetchIter, error) {
+	q, args, err := ec.Render()
+	if err != nil {
+		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
+			errors.Wrap(err, "rendering query to query with iterator")
+	}
+	return ec.db.QueryIter(q, args...)
 }
 
 // Run executes the chain, works for Insert and Update
-func (ec *ExpresionChain) Run() error {
+func (ec *ExpresionChain) Exec() error {
 	return nil
 }
 
