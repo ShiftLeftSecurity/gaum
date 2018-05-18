@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 
@@ -34,6 +35,7 @@ const (
 	sqlOffset sqlSegment = "OFFSET"
 	sqlJoin   sqlSegment = "JOIN"
 	sqlSelect sqlSegment = "SELECT"
+	sqlDelete sqlSegment = "DELETE"
 	sqlInsert sqlSegment = "INSERT"
 	sqlUpdate sqlSegment = "UPDATE"
 	sqlFrom   sqlSegment = "FROM"
@@ -63,6 +65,26 @@ func (q *querySegmentAtom) clone() querySegmentAtom {
 	}
 }
 
+func (q *querySegmentAtom) fields() []string {
+	fields := []string{}
+	if q.segment == sqlSelect {
+		rawFields := strings.Split(q.expresion, ",")
+		for _, field := range rawFields {
+			field = strings.ToLower(field)
+			field := strings.TrimRight(strings.TrimLeft(field, " "), " ")
+			fieldParts := strings.Split(field, " as ")
+			fieldName := fieldParts[len(fieldParts)-1]
+			fieldName = strings.TrimRight(strings.TrimLeft(fieldName, " "), " ")
+			if fieldName == "" {
+				continue
+			}
+			fields = append(fields, fieldName)
+		}
+	}
+	// TODO make UPDATE and INSERT for completion's sake
+	return fields
+}
+
 func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool) (string, []interface{}) {
 	expresion := ""
 	if !firstForSegment {
@@ -88,7 +110,16 @@ type ExpresionChain struct {
 	limit  *querySegmentAtom
 	offset *querySegmentAtom
 
+	set string
+
 	db connection.DB
+}
+
+// Set will add produce your chain to be run inside a Transaction and used for `SET LOCAL`
+// For the moment this is only used with Exec.
+func (ec *ExpresionChain) Set(set string) *ExpresionChain {
+	ec.set = set
+	return ec
 }
 
 // Clone returns a copy of the ExpresionChain
@@ -132,7 +163,7 @@ func (ec *ExpresionChain) setLimit(limit *querySegmentAtom) {
 func (ec *ExpresionChain) setOffset(offset *querySegmentAtom) {
 	ec.lock.Lock()
 	defer ec.lock.Unlock()
-	ec.limit = offset
+	ec.offset = offset
 }
 
 func (ec *ExpresionChain) setTable(table string) {
@@ -200,15 +231,30 @@ func (ec *ExpresionChain) Select(fields ...string) *ExpresionChain {
 	return ec
 }
 
+// Delete determines a deletion will be made with the results of the query.
+func (ec *ExpresionChain) Delete(fields ...string) *ExpresionChain {
+	ec.mainOperation = &querySegmentAtom{
+		segment:   sqlDelete,
+		arguments: nil,
+		sqlBool:   SQLNothing,
+	}
+	return ec
+}
+
 // Insert set fields/values for insertion.
 func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionChain {
 	exprKeys := make([]string, len(insertPairs))
 	exprValues := make([]interface{}, len(insertPairs))
+
 	i := 0
-	for k, v := range insertPairs {
+	for k := range insertPairs {
 		exprKeys[i] = k
-		exprValues[i] = v
 		i++
+	}
+	// This is not really necessary but it makes things a bit more deterministic when debugging.
+	sort.Strings(exprKeys)
+	for i, k := range exprKeys {
+		exprValues[i] = insertPairs[k]
 	}
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlInsert,
@@ -344,10 +390,23 @@ func (ec *ExpresionChain) RenderInsert() (string, []interface{}, error) {
 	args := make([]interface{}, 0)
 	args = append(args, ec.table)
 	args = append(args, ec.mainOperation.arguments...)
-	return fmt.Sprintf("INSERT INTO ? (%s) VALUES (%s)",
-			ec.mainOperation.expresion,
-			strings.Join(placeholders, ", ")),
-		args, nil
+	query := fmt.Sprintf("INSERT INTO ? (%s) VALUES (%s)",
+		ec.mainOperation.expresion,
+		strings.Join(placeholders, ", "))
+
+	// TODO: make this a bit less ugly
+	// TODO: identify escaped questionmarks
+	queryWithArgs := ""
+	argCounter := 1
+	for _, queryChar := range query {
+		if queryChar == '?' {
+			queryWithArgs += fmt.Sprintf("$%d", argCounter)
+			argCounter++
+		} else {
+			queryWithArgs += string(queryChar)
+		}
+	}
+	return queryWithArgs, args, nil
 }
 
 // Render returns the SQL expresion string and the arguments of said expresion, there is no checkig
@@ -376,14 +435,18 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 			ec.mainOperation.expresion)
 		args = append(args, ec.table)
 		args = append(ec.mainOperation.arguments)
-	// SELECT
-	case sqlSelect:
+	// SELECT, DELETE
+	case sqlSelect, sqlDelete:
 		expresion := ec.mainOperation.expresion
 		if len(expresion) == 0 {
 			expresion = "*"
 		}
-		query = fmt.Sprintf("SELECT %s",
-			expresion)
+		if ec.mainOperation.segment == sqlSelect {
+			query = fmt.Sprintf("SELECT %s",
+				expresion)
+		} else {
+			query = "DELETE *"
+		}
 		// FROM
 		if ec.table == "" {
 			return "", nil, errors.Errorf("no table specified for this query")
@@ -416,7 +479,7 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	}
 
 	// GROUP BY
-	groups := extract(ec, sqlOrder)
+	groups := extract(ec, sqlGroup)
 	groupByStatement := " GROUP BY "
 	if len(groups) != 0 {
 		groupCriteria := []string{}
@@ -435,7 +498,7 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	orderByStatemet := " ORDER BY "
 	if len(orders) != 0 {
 		orderCriteria := []string{}
-		for _, item := range groups {
+		for _, item := range orders {
 			expr := item.expresion
 			arguments := item.arguments
 			args = append(args, arguments...)

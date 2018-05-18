@@ -32,13 +32,33 @@ type DatabaseHandler interface {
 	Open(*Information) (DB, error)
 }
 
+// ResultFetchIter represents a closure that receives a receiver struct that will get the
+// results assigned for one row and returns a tuple of `next item present`, `close function`, error
 type ResultFetchIter func(interface{}) (bool, func(), error)
+
+// ResultFetch represents a closure that receives a receiver struct and wil assign all the results
+// it is expected that it receives a slice.
 type ResultFetch func(interface{}) error
 
 // DB represents an active database connection.
 type DB interface {
 	// Clone returns a stateful copy of this connection.
 	Clone() DB
-	QueryIter(statement string, args ...interface{}) (ResultFetchIter, error)
-	Query(statement string, args ...interface{}) (ResultFetch, error)
+	QueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
+	Query(statement string, fields []string, args ...interface{}) (ResultFetch, error)
+	// Raw ins intended to be an all raw query that runs statement with args and tries
+	// to retrieve the results into fields without much magic whatsoever.
+	Raw(statement string, args []interface{}, fields ...interface{}) error
+	// Exec is intended for queries that do not yield results (data modifiers)
+	Exec(statement string, args ...interface{}) error
+	// BeginTransaction returns a new DB that will use the transaction instead of the basic conn.
+	BeginTransaction() (DB, error)
+	// CommitTransaction commits the transaction
+	CommitTransaction() error
+	// RollbackTransaction rolls back the transaction
+	RollbackTransaction() error
+	// IsTransaction indicates if the DB is in the middle of a transaction.
+	IsTransaction() bool
+	// Set allows to change settings for the current transaction.
+	Set(set string) error
 }

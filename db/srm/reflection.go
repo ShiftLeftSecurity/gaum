@@ -1,0 +1,140 @@
+package srm
+
+import (
+	"reflect"
+	"strings"
+	"unicode"
+
+	"github.com/pkg/errors"
+)
+
+// ErrNoPointer indicates that the passed type is not a pointer.
+var ErrNoPointer = errors.Errorf("destination needs to be pointer")
+
+// ErrInquisition indicates that the type passed was not one expected.
+var ErrInquisition = errors.Errorf("found an unexpected type")
+
+const (
+	// SubTagNameFieldName holds the name of a sub-tag containing the sql field for a struct attribute.
+	SubTagNameFieldName = "field_name"
+	// TagName holds the name of the tag that contains all of bmstrem possible sub tags.
+	TagName = "bmstrem"
+)
+
+// nameFromTagOrName extracts field name from `bmstrem:"field_name:something"` or returns the
+// field name.
+func nameFromTagOrName(field reflect.StructField) string {
+	tag := field.Tag
+	tagText, ok := tag.Lookup(TagName)
+	if !ok {
+		return ""
+	}
+	tagContents := strings.Split(tagText, ";")
+	for _, segment := range tagContents {
+		pair := strings.Split(segment, ":")
+		if len(pair) != 2 {
+			// TODO log when there is an invalid tag
+			continue
+		}
+		tagName, tagValue := pair[0], pair[1]
+		if tagName == SubTagNameFieldName {
+			return tagValue
+		}
+	}
+	return camelsToSnakes(field.Name)
+}
+
+func camelsToSnakes(s string) string {
+	snake := ""
+	for i, v := range s {
+		if unicode.IsUpper(v) {
+			if i != 0 {
+				snake += "_"
+			}
+			snake += string(unicode.ToUpper(v))
+		} else {
+			snake += string(v)
+		}
+	}
+	return snake
+}
+
+func snakesToCamels(s string) string {
+	var c string
+	var snake bool
+	for i, v := range s {
+		if i == 0 {
+			c += strings.ToUpper(string(v))
+			continue
+		}
+		if v == '_' {
+			snake = true
+			continue
+		}
+		if snake {
+			c += strings.ToUpper(string(v))
+			continue
+		}
+		c += string(v)
+	}
+	return c
+}
+
+// MapFromPtrType returns the name of the passed type, a map of field name to field or error.
+func MapFromPtrType(aType interface{}, include []reflect.Kind, exclude []reflect.Kind) (string, map[string]reflect.StructField, error) {
+	tod := reflect.TypeOf(aType)
+	if tod.Kind() != reflect.Ptr {
+		return "", nil, ErrNoPointer
+	}
+	tod = tod.Elem()
+	if len(include) != 0 {
+		expected := false
+		for _, k := range include {
+			if tod.Kind() == k {
+				expected = true
+				break
+			}
+		}
+		if !expected {
+			return "", nil, errors.Wrapf(ErrInquisition, "did not expect type to be one of %#v", include)
+		}
+	}
+	if len(exclude) != 0 {
+		for _, k := range exclude {
+			if tod.Kind() == k {
+				return "", nil, errors.Wrapf(ErrInquisition, "did not expect passed type to be of kind %s", k)
+			}
+		}
+	}
+
+	if tod.Kind() == reflect.Slice {
+		// If this is a slice I want the type of the slice.
+		tod = tod.Elem()
+	}
+
+	typeName := tod.Name()
+	fieldMap := make(map[string]reflect.StructField, tod.NumField())
+	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
+		field := tod.Field(fieldIndex)
+		name := nameFromTagOrName(field)
+		fieldMap[name] = field
+	}
+	return typeName, fieldMap, nil
+}
+
+// FieldRecipientsFromType returns an array of pointer to attributes fomr the passed in instance.
+func FieldRecipientsFromType(sqlFields []string, fieldMap map[string]reflect.StructField, aType interface{}) []interface{} {
+	vod := reflect.ValueOf(aType).Elem()
+	fieldRecipients := make([]interface{}, len(sqlFields), len(sqlFields))
+	for i, field := range sqlFields {
+		// TODO, check datatype compatibility or let it burn?
+		fVal, ok := fieldMap[field]
+		if !ok {
+			var empty interface{}
+			fieldRecipients[i] = empty
+			continue
+		}
+		fieldRecipients[i] = vod.FieldByIndex(fVal.Index).Addr().Interface()
+	}
+	return fieldRecipients
+}
