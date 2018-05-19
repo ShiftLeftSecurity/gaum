@@ -287,6 +287,7 @@ func (d *DB) RollbackTransaction() error {
 }
 
 // Set tries to run `SET LOCAL` with the passed parameters if there is an ongoing transaction.
+// https://www.postgresql.org/docs/9.2/static/sql-set.html
 func (d *DB) Set(set string) error {
 	if d.tx == nil {
 		return nil
@@ -295,6 +296,42 @@ func (d *DB) Set(set string) error {
 	cTag, err := d.tx.Exec("SET LOCAL " + set)
 	if err != nil {
 		return errors.Wrapf(err, "trying to set local, returned: %s", cTag)
+	}
+	return nil
+}
+
+// BulkInsert will use postgres copy function to try to insert a lot of data.
+// You might need to use pgx types for the values to reduce probability of failure.
+// https://godoc.org/github.com/jackc/pgx#Conn.CopyFrom
+func (d *DB) BulkInsert(tableName string, columns []string, values [][]interface{}) (execError error) {
+	//func (c *Conn) CopyFrom(tableName Identifier, columnNames []string, rowSrc CopyFromSource) (int, error)
+	tx := d.tx
+	if d.tx == nil {
+		var err error
+		tx, err = d.conn.Begin()
+		if err != nil {
+			return errors.Wrap(err, "beginning transaction for bulk insert")
+		}
+		defer func() {
+			if execError != nil {
+				err := tx.Rollback()
+				execError = errors.Wrapf(execError,
+					"there was a failure running the expression and also rolling back te transaction: %v",
+					err)
+			} else {
+				err := tx.Commit()
+				execError = errors.Wrap(err, "could not commit the transaction")
+			}
+		}()
+	}
+	copySource := pgx.CopyFromRows(values)
+	rowsAffected, err := tx.CopyFrom(pgx.Identifier{tableName}, columns, copySource)
+	if rowsAffected != len(values) {
+		return errors.Errorf("%d rows were passed but only %d inserted, will rollback",
+			len(values), rowsAffected)
+	}
+	if err != nil {
+		return errors.Wrap(err, "bulk inserting")
 	}
 	return nil
 }

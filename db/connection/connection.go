@@ -44,7 +44,9 @@ type ResultFetch func(interface{}) error
 type DB interface {
 	// Clone returns a stateful copy of this connection.
 	Clone() DB
+	// QueryIter returns closure allowing to load/fetch roads one by one.
 	QueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
+	// Query returns a closure that allows fetching of the results of the query.
 	Query(statement string, fields []string, args ...interface{}) (ResultFetch, error)
 	// Raw ins intended to be an all raw query that runs statement with args and tries
 	// to retrieve the results into fields without much magic whatsoever.
@@ -61,4 +63,6 @@ type DB interface {
 	IsTransaction() bool
 	// Set allows to change settings for the current transaction.
 	Set(set string) error
+	// BulkInsert Inserts in the most efficient way possible a lot of data.
+	BulkInsert(tableName string, columns []string, values [][]interface{}) (execError error)
 }

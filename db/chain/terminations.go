@@ -49,7 +49,6 @@ func (ec *ExpresionChain) Exec() (execError error) {
 			return errors.Wrap(execError, "starting transaction to run SET LOCAL")
 		}
 		defer func() {
-			// TODO log if either rb or commit failed
 			if execError != nil {
 				err := db.RollbackTransaction()
 				execError = errors.Wrapf(execError,
@@ -85,13 +84,6 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 	return ec.db.Raw(q, args, fields...)
 }
 
-// TODO Add Set like gorm (I have no clue what it does) https://www.postgresql.org/docs/9.2/static/sql-set.html
-// use SET LOCAL and wrap in a transaction when invoked.
-
 // TODO add batch running of many chains.
-
-// TODO add transaction object that must contain array of chains, for this chain must contain a TX
-// method that takes a db conn (with tx begin called) and each run must work transactionally so the
-// Tx object can be reused if necessary.
 
 // TODO Add pg Copy feature where possible to handle large inserts.

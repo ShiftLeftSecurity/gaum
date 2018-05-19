@@ -115,7 +115,7 @@ type ExpresionChain struct {
 	db connection.DB
 }
 
-// Set will add produce your chain to be run inside a Transaction and used for `SET LOCAL`
+// Set will produce your chain to be run inside a Transaction and used for `SET LOCAL`
 // For the moment this is only used with Exec.
 func (ec *ExpresionChain) Set(set string) *ExpresionChain {
 	ec.set = set
@@ -434,7 +434,7 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 		query = fmt.Sprintf("UPDATE ? SET (%s)",
 			ec.mainOperation.expresion)
 		args = append(args, ec.table)
-		args = append(ec.mainOperation.arguments)
+		args = append(args, ec.mainOperation.arguments...)
 	// SELECT, DELETE
 	case sqlSelect, sqlDelete:
 		expresion := ec.mainOperation.expresion
@@ -452,6 +452,11 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 			return "", nil, errors.Errorf("no table specified for this query")
 		}
 		query += fmt.Sprintf(" FROM %s", ec.table)
+
+	}
+	if ec.mainOperation.segment == sqlSelect ||
+		ec.mainOperation.segment == sqlDelete ||
+		ec.mainOperation.segment == sqlUpdate {
 		// JOIN
 		joins := extract(ec, sqlJoin)
 		if len(joins) != 0 {
@@ -532,6 +537,10 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 		} else {
 			queryWithArgs += string(queryChar)
 		}
+	}
+	if len(args) != argCounter-1 {
+		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
+			argCounter-1, len(args), queryWithArgs, args)
 	}
 	return queryWithArgs, args, nil
 }
