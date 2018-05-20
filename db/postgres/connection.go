@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -95,6 +96,7 @@ func snakesToCamels(s string) string {
 func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
 	var rows *pgx.Rows
 	var err error
+	d.logger.Info(fmt.Sprintf("will use fields: %#v", fields))
 	if d.conn != nil {
 		rows, err = d.conn.Query(statement, args...)
 	} else {
@@ -122,7 +124,7 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 	}
 	return func(destination interface{}) (bool, func(), error) {
 		var err error
-		if reflect.TypeOf(destination).Name() != typeName {
+		if reflect.TypeOf(destination).Elem().Name() != typeName {
 			typeName, fieldMap, err = srm.MapFromPtrType(destination, []reflect.Kind{}, []reflect.Kind{
 				reflect.Map, reflect.Slice,
 			})
@@ -131,12 +133,13 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 				return false, func() {}, errors.Wrapf(err, "cant fetch data into %T", destination)
 			}
 		}
-		fieldRecipients := srm.FieldRecipientsFromType(fields, fieldMap, destination)
+		fieldRecipients := srm.FieldRecipientsFromType(d.logger, fields, fieldMap, destination)
 
 		err = rows.Scan(fieldRecipients...)
 		if err != nil {
 			defer rows.Close()
-			return false, func() {}, errors.Wrap(err, "scanning values into recipient, connection was closed")
+			return false, func() {}, errors.Wrap(err,
+				"scanning values into recipient, connection was closed")
 		}
 
 		return rows.Next(), rows.Close, nil
@@ -159,16 +162,12 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			errors.Wrap(err, "querying database")
 	}
 	var fieldMap map[string]reflect.StructField
-	var typeName string
+
 	return func(destination interface{}) error {
 		// TODO add a timer that closes rows if nothing is done.
 		defer rows.Close()
 		var err error
-		typeName, fieldMap, err = srm.MapFromPtrType(destination, []reflect.Kind{reflect.Slice}, []reflect.Kind{})
-		if err != nil {
-			defer rows.Close()
-			return errors.Wrapf(err, "cant fetch data into %T", destination)
-		}
+		reflect.ValueOf(destination).Elem().Set(reflect.MakeSlice(reflect.TypeOf(destination).Elem(), 0, 0))
 
 		// Obtain the actual slice
 		destinationSlice := reflect.ValueOf(destination).Elem()
@@ -184,19 +183,28 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 				fields[i] = v.Name
 			}
 		}
+
 		for rows.Next() {
-			// Get a New object of the type of the slice.
-			newElem := reflect.Zero(tod)
-			if typeName != tod.Name() {
-				typeName = tod.Name()
-				fieldMap = make(map[string]reflect.StructField, tod.NumField())
-				for fieldIndex := 0; fieldIndex > tod.NumField(); fieldIndex++ {
-					field := tod.Field(fieldIndex)
-					fieldMap[field.Name] = field
-				}
+			// Get a New ptr to the object of the type of the slice.
+			newElemPtr := reflect.New(tod)
+			// Get the concrete object
+			newElem := newElemPtr.Elem()
+			// Get it's type.
+			ttod := newElem.Type()
+
+			// map the fields of the type to their potential sql names, this is the only "magic"
+			fieldMap = make(map[string]reflect.StructField, ttod.NumField())
+			_, fieldMap, err = srm.MapFromTypeOf(newElemPtr.Elem().Type(),
+				[]reflect.Kind{}, []reflect.Kind{
+					reflect.Map, reflect.Slice,
+				})
+			if err != nil {
+				defer rows.Close()
+				return errors.Wrapf(err, "cant fetch data into %T", destination)
 			}
+
 			// Construct the recipient fields.
-			fieldRecipients := srm.FieldRecipientsFromType(fields, fieldMap, newElem.Addr())
+			fieldRecipients := srm.FieldRecipientsFromValueOf(d.logger, fields, fieldMap, newElem)
 
 			// Try to fetch the data
 			err = rows.Scan(fieldRecipients...)
@@ -206,7 +214,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			}
 			// Add to the passed slice, this will actually add to an already populated slice if one
 			// passed, how cool is that?
-			destinationSlice.Set(reflect.Append(destinationSlice, newElem))
+			destinationSlice.Set(reflect.Append(destinationSlice, newElemPtr.Elem()))
 		}
 		return nil
 	}, nil

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"unicode"
 
+	"github.com/perrito666/bmstrem/db/logging"
 	"github.com/pkg/errors"
 )
 
@@ -26,21 +27,21 @@ const (
 func nameFromTagOrName(field reflect.StructField) string {
 	tag := field.Tag
 	tagText, ok := tag.Lookup(TagName)
-	if !ok {
-		return ""
-	}
-	tagContents := strings.Split(tagText, ";")
-	for _, segment := range tagContents {
-		pair := strings.Split(segment, ":")
-		if len(pair) != 2 {
-			// TODO log when there is an invalid tag
-			continue
+	if ok {
+		tagContents := strings.Split(tagText, ";")
+		for _, segment := range tagContents {
+			pair := strings.Split(segment, ":")
+			if len(pair) != 2 {
+				// TODO log when there is an invalid tag
+				continue
+			}
+			tagName, tagValue := pair[0], pair[1]
+			if tagName == SubTagNameFieldName {
+				return tagValue
+			}
 		}
-		tagName, tagValue := pair[0], pair[1]
-		if tagName == SubTagNameFieldName {
-			return tagValue
-		}
 	}
+
 	return camelsToSnakes(field.Name)
 }
 
@@ -51,7 +52,7 @@ func camelsToSnakes(s string) string {
 			if i != 0 {
 				snake += "_"
 			}
-			snake += string(unicode.ToUpper(v))
+			snake += string(unicode.ToLower(v))
 		} else {
 			snake += string(v)
 		}
@@ -81,12 +82,24 @@ func snakesToCamels(s string) string {
 }
 
 // MapFromPtrType returns the name of the passed type, a map of field name to field or error.
-func MapFromPtrType(aType interface{}, include []reflect.Kind, exclude []reflect.Kind) (string, map[string]reflect.StructField, error) {
+func MapFromPtrType(aType interface{},
+	include []reflect.Kind,
+	exclude []reflect.Kind) (string, map[string]reflect.StructField, error) {
 	tod := reflect.TypeOf(aType)
 	if tod.Kind() != reflect.Ptr {
-		return "", nil, ErrNoPointer
+		return "", nil, errors.Wrapf(ErrNoPointer, "obtained: type %T, kind %v, content %#v",
+			aType, tod.Kind(), aType)
 	}
 	tod = tod.Elem()
+	return MapFromTypeOf(tod, include, exclude)
+}
+
+// MapFromTypeOf returns the name of the passed reflect.Type, a map of field name to field or error.
+func MapFromTypeOf(tod reflect.Type,
+	include []reflect.Kind,
+	exclude []reflect.Kind) (string, map[string]reflect.StructField, error) {
+
+	// Expect the passed in type to be any of these.
 	if len(include) != 0 {
 		expected := false
 		for _, k := range include {
@@ -96,17 +109,22 @@ func MapFromPtrType(aType interface{}, include []reflect.Kind, exclude []reflect
 			}
 		}
 		if !expected {
-			return "", nil, errors.Wrapf(ErrInquisition, "did not expect type to be one of %#v", include)
+			return "", nil, errors.Wrapf(ErrInquisition,
+				"did not expect type to be one of %#v", include)
 		}
 	}
+
+	// Expect the passed in type to be none of these.
 	if len(exclude) != 0 {
 		for _, k := range exclude {
 			if tod.Kind() == k {
-				return "", nil, errors.Wrapf(ErrInquisition, "did not expect passed type to be of kind %s", k)
+				return "", nil, errors.Wrapf(ErrInquisition,
+					"did not expect passed type to be of kind %s", k)
 			}
 		}
 	}
 
+	// We want the inner component.
 	if tod.Kind() == reflect.Slice {
 		// If this is a slice I want the type of the slice.
 		tod = tod.Elem()
@@ -123,10 +141,22 @@ func MapFromPtrType(aType interface{}, include []reflect.Kind, exclude []reflect
 }
 
 // FieldRecipientsFromType returns an array of pointer to attributes fomr the passed in instance.
-func FieldRecipientsFromType(sqlFields []string, fieldMap map[string]reflect.StructField, aType interface{}) []interface{} {
-	vod := reflect.ValueOf(aType).Elem()
+func FieldRecipientsFromType(logger logging.Logger, sqlFields []string,
+	fieldMap map[string]reflect.StructField, aType interface{}) []interface{} {
+	vod := reflect.ValueOf(aType)
+	if vod.Type().Kind() == reflect.Ptr {
+		vod = vod.Elem()
+	}
+	return FieldRecipientsFromValueOf(logger, sqlFields, fieldMap, vod)
+}
+
+// FieldRecipientsFromValueOf returns an array of pointer to attributes fomr the passed
+// in reflect.Value.
+func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
+	fieldMap map[string]reflect.StructField, vod reflect.Value) []interface{} {
 	fieldRecipients := make([]interface{}, len(sqlFields), len(sqlFields))
 	for i, field := range sqlFields {
+
 		// TODO, check datatype compatibility or let it burn?
 		fVal, ok := fieldMap[field]
 		if !ok {
