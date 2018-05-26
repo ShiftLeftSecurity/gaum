@@ -41,6 +41,8 @@ const (
 	sqlFrom   sqlSegment = "FROM"
 	sqlGroup  sqlSegment = "GROUP BY"
 	sqlOrder  sqlSegment = "ORDER BY"
+	// SPECIAL CASES
+	sqlInsertMulti sqlSegment = "INSERTM"
 )
 
 type querySegmentAtom struct {
@@ -96,7 +98,7 @@ func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool) (string,
 
 // NewExpresionChain returns a new instance of ExpresionChain hooked to the passed DB
 func NewExpresionChain(db connection.DB) *ExpresionChain {
-	return &ExpresionChain{db: db}
+	return &ExpresionChain{db: db, conflict: map[string]string{}}
 }
 
 // ExpresionChain holds all the atoms for the SQL expresions that make a query and allows to chain
@@ -111,6 +113,8 @@ type ExpresionChain struct {
 	offset *querySegmentAtom
 
 	set string
+
+	conflict map[string]string
 
 	db connection.DB
 }
@@ -239,6 +243,45 @@ func (ec *ExpresionChain) Delete(fields ...string) *ExpresionChain {
 		sqlBool:   SQLNothing,
 	}
 	return ec
+}
+
+func (ec *ExpresionChain) Conflict(constraint, action string) *ExpresionChain {
+	ec.conflict[constraint] = action
+}
+
+// InsertMulti set fields/values for insertion.
+func (ec *ExpresionChain) InsertMulti(insertPairs map[string][]interface{}) (*ExpresionChain, error) {
+	exprKeys := make([]string, len(insertPairs))
+
+	i := 0
+	insertLen := 0
+	for k, v := range insertPairs {
+		exprKeys[i] = k
+		i++
+		if insertLen != 0 {
+			if len(v) != insertLen {
+				return nil, errors.Errorf("lenght of insert columns missmatch on column %s", k)
+			}
+			insertLen = len(v)
+		}
+	}
+	// This is not really necessary but it makes things a bit more deterministic when debugging.
+	sort.Strings(exprKeys)
+	exprValues := make([]interface{}, len(exprKeys)*insertLen, len(exprKeys)*insertLen)
+	position := 0
+	for row := 0; row < insertLen; row++ {
+		for _, k := range exprKeys {
+			exprValues[position] = insertPairs[k][row]
+			position++
+		}
+	}
+	ec.mainOperation = &querySegmentAtom{
+		segment:   sqlInsert,
+		expresion: strings.Join(exprKeys, ", "),
+		arguments: exprValues,
+		sqlBool:   SQLNothing,
+	}
+	return ec, nil
 }
 
 // Insert set fields/values for insertion.
@@ -394,6 +437,71 @@ func (ec *ExpresionChain) RenderInsert() (string, []interface{}, error) {
 		ec.mainOperation.expresion,
 		strings.Join(placeholders, ", "))
 
+	conflicts := []string{}
+	for k, v := range ec.conflict {
+
+		if v == "" {
+			continue
+		}
+		// TODO make parentheses be magic
+		conflicts = append(conflicts,
+			fmt.Sprintf("ON CONFLICT %s DO %s", k, v))
+	}
+	if len(conflicts) > 0 {
+		query += " " + strings.Join(conflicts, ", ")
+	}
+
+	// TODO: make this a bit less ugly
+	// TODO: identify escaped questionmarks
+	queryWithArgs := ""
+	argCounter := 1
+	for _, queryChar := range query {
+		if queryChar == '?' {
+			queryWithArgs += fmt.Sprintf("$%d", argCounter)
+			argCounter++
+		} else {
+			queryWithArgs += string(queryChar)
+		}
+	}
+	return queryWithArgs, args, nil
+}
+
+// RenderInsertMulti does render for the very particular case of insert
+func (ec *ExpresionChain) RenderInsertMulti() (string, []interface{}, error) {
+	if ec.table == "" {
+		return "", nil, errors.Errorf("no table specified for this insert")
+	}
+	argCount := strings.Count(ec.mainOperation.expresion, ",") + 1
+	placeholders := make([]string, argCount, argCount)
+	for i := 0; i > argCount; i++ {
+		placeholders[i] = "?"
+	}
+	values := make([]string, len(ec.mainOperation.arguments)/argCount,
+		len(ec.mainOperation.arguments)/argCount)
+	for i := 0; i < len(ec.mainOperation.arguments)/argCount; i++ {
+		values[i] += fmt.Sprintf("(%s)", strings.Join(placeholders, ", "))
+	}
+	args := make([]interface{}, 0)
+	args = append(args, ec.table)
+	args = append(args, ec.mainOperation.arguments...)
+	query := fmt.Sprintf("INSERT INTO ? (%s) VALUES %s",
+		ec.mainOperation.expresion,
+		strings.Join(values, ", "))
+
+	conflicts := []string{}
+	for k, v := range ec.conflict {
+
+		if v == "" {
+			continue
+		}
+		// TODO make parentheses be magic
+		conflicts = append(conflicts,
+			fmt.Sprintf("ON CONFLICT %s DO %s", k, v))
+	}
+	if len(conflicts) > 0 {
+		query += " " + strings.Join(conflicts, ", ")
+	}
+
 	// TODO: make this a bit less ugly
 	// TODO: identify escaped questionmarks
 	queryWithArgs := ""
@@ -422,6 +530,9 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	case sqlInsert:
 		// Too much of a special cookie for the general case.
 		return ec.RenderInsert()
+	case sqlInsertMulti:
+		// Too much of a special cookie for the general case.
+		return ec.RenderInsertMulti()
 	// UPDATE
 	case sqlUpdate:
 		if ec.table == "" {
