@@ -225,3 +225,48 @@ func TestConnector_Query(t *testing.T) {
 	}
 
 }
+
+func TestConnector_Raw(t *testing.T) {
+
+	connector := Connector{
+		ConnectionString: "TODO",
+	}
+	defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
+	goLoggerWrapped := logging.NewGoLogger(defaultLogger)
+	db, err := connector.Open(
+		&connection.Information{
+			Host:             "127.0.0.1",
+			Port:             5432,
+			Database:         "postgres",
+			User:             "postgres",
+			Password:         "mysecretpassword",
+			MaxConnPoolConns: 10,
+			Logger:           goLoggerWrapped,
+		},
+	)
+	if err != nil {
+		t.Errorf("failed to connect to db: %v", err)
+	}
+	type row struct {
+		Id          int
+		Description string
+	}
+	aRow := row{}
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	query.Select("id, description").Table("justforfun").Where("id = ?", 1)
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	if aRow.Id != 1 {
+		t.Logf("row Id is %d expected 1", aRow.Id)
+		t.FailNow()
+	}
+	if aRow.Description != "first" {
+		t.Logf("row Description is %q expected \"first\"", aRow.Description)
+		t.FailNow()
+	}
+
+}

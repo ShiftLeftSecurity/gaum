@@ -245,8 +245,11 @@ func (ec *ExpresionChain) Delete(fields ...string) *ExpresionChain {
 	return ec
 }
 
+// Conflict will add a "ON CONFLICT" clause at the end of the query if the main operation
+// is an INSERT.
 func (ec *ExpresionChain) Conflict(constraint, action string) *ExpresionChain {
 	ec.conflict[constraint] = action
+	return ec
 }
 
 // InsertMulti set fields/values for insertion.
