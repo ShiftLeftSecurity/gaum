@@ -244,9 +244,21 @@ will produce:
 ```sql
 DELETE FROM something WHERE arg1 = $1 AND arg2>$2
 ```
-#### InsertMulti (untested)
+#### InsertMulti
 
-Therefore undocumented
+```golang
+query, err := chain.InsertMulti(map[string][]interface{}{
+	"field1": []interface{"value1", "value2"},
+	"field2": []interface{2, 3}, 
+	"field3": []interface{"blah", "foo"},
+	}).Table("something")
+```
+
+will produce:
+
+```sql
+INSERT INTO something (field1, field2, field3) VALUES ($1, $2, $3), ($4, $5, $6), ($7, $8, $9)
+```
 
 #### Clone
 

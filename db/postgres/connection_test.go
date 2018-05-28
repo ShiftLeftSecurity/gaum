@@ -53,7 +53,7 @@ func TestConnector_QueryIter(t *testing.T) {
 	/*
 		docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=mysecretpassword -d postgres
 
-		CREATE TABLE justforfun (id int, description text) CONSTRAINT therecanbeonlyone UNIQUE (id);
+		CREATE TABLE justforfun (id int, description text, CONSTRAINT therecanbeonlyone UNIQUE (id));
 		INSERT INTO justforfun (id, description) VALUES (1, 'first');
 		INSERT INTO justforfun (id, description) VALUES (2, 'second');
 		INSERT INTO justforfun (id, description) VALUES (3, 'third');
@@ -300,8 +300,80 @@ func TestConnector_Insert(t *testing.T) {
 
 }
 
-func TestConnector_InsertConstraint(t *testing.T) {
+func TestConnector_MultiInsert(t *testing.T) {
 
+	db := newDB(t)
+	type row struct {
+		Id          int
+		Description string
+	}
+	aRow := row{}
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	query1 := query.Clone()
+	tempDescription := uuid.NewV4().String()
+	tempDescription1 := uuid.NewV4().String()
+	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	err := query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+
+	query1.Select("id, description").Table("justforfun").Where("description = ?", tempDescription1)
+	err = query1.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our second description should fail, this record should not exist")
+		t.FailNow()
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	tempID := rand.Intn(11000)
+	tempID1 := tempID + 1
+
+	insertQuery := chain.NewExpresionChain(db)
+	_, err = insertQuery.InsertMulti(map[string][]interface{}{
+		"description": []interface{}{tempDescription, tempDescription1},
+		"id":          []interface{}{tempID, tempID1},
+	})
+	insertQuery.Table("justforfun")
+	err = insertQuery.Exec()
+	if err != nil {
+		t.Logf("failed to insert: %v", err)
+		t.FailNow()
+	}
+
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err != nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	if aRow.Id != tempID {
+		t.Logf("row Id is %d expected %d", aRow.Id, tempID)
+		t.FailNow()
+	}
+	if aRow.Description != tempDescription {
+		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription)
+		t.FailNow()
+	}
+
+	err = query1.Raw(&aRow.Id, &aRow.Description)
+	if err != nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	if aRow.Id != tempID1 {
+		t.Logf("row Id is %d expected %d", aRow.Id, tempID1)
+		t.FailNow()
+	}
+	if aRow.Description != tempDescription1 {
+		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription1)
+		t.FailNow()
+	}
+
+}
+
+func TestConnector_InsertConstraint(t *testing.T) {
 	db := newDB(t)
 	type row struct {
 		Id          int
@@ -346,7 +418,6 @@ func TestConnector_InsertConstraint(t *testing.T) {
 	}
 
 	// Second attempt at inserting, this should fail
-
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
 	queryString, queryArgs, _ := insertQuery.Render()
@@ -373,7 +444,6 @@ func TestConnector_InsertConstraint(t *testing.T) {
 }
 
 func TestConnector_Transaction(t *testing.T) {
-
 	db := newDB(t)
 	type row struct {
 		Id          int

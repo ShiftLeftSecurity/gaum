@@ -47,14 +47,14 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "basic selection with where and join",
-			chain: (&ExpresionChain{}).Delete("field1", "field2", "field3").
+			name: "basic deletion with where and join",
+			chain: (&ExpresionChain{}).Delete().
 				Table("convenient_table").
 				Where("field1 > ?", 1).
 				Where("field2 == ?", 2).
 				Where("field3 > ?", "pajarito").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "DELETE * FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4",
+			want:     "DELETE  FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -62,12 +62,28 @@ func TestExpresionChain_Render(t *testing.T) {
 			name: "basic insert",
 			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table"),
-			want:     "INSERT INTO $1 (field1, field2, field3) VALUES ($2, $3, $4)",
-			wantArgs: []interface{}{"convenient_table", "value1", 2, "blah"},
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3)",
+			wantArgs: []interface{}{"value1", 2, "blah"},
 			wantErr:  false,
 		},
 		{
-			name: "basic selection with where and join",
+			name: "basic insert with conflict on column",
+			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").Conflict("id", ConflictActionNothing),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT id DO NOTHING",
+			wantArgs: []interface{}{"value1", 2, "blah"},
+			wantErr:  false,
+		},
+		{
+			name: "basic insert with conflict on constraint",
+			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").Conflict(Constraint("id"), ConflictActionNothing),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
+			wantArgs: []interface{}{"value1", 2, "blah"},
+			wantErr:  false,
+		},
+		{
+			name: "selection with where and join and order by",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				Where("field1 > ?", 1).
@@ -80,7 +96,7 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "basic selection with where and join",
+			name: "basic selection with where and join and group by",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				Where("field1 > ?", 1).
@@ -93,7 +109,7 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "basic selection with where and join",
+			name: "basic selection with where and join and group by and limit and offset",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				Where("field1 > ?", 1).
@@ -108,7 +124,7 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "basic selection with where and join",
+			name: "basic update with where and join",
 			chain: (&ExpresionChain{}).Update("field1 = ?, field3 = ?", "value2", 9).
 				Table("convenient_table").
 				Where("field1 > ?", 1).

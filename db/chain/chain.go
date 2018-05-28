@@ -269,6 +269,9 @@ func Constraint(constraint string) string {
 // This requires a constraint or field name because I really want to be explicit when things
 // are to be ignored.
 func (ec *ExpresionChain) Conflict(constraint string, action ConflictAction) *ExpresionChain {
+	if ec.conflict == nil {
+		ec.conflict = map[string]string{}
+	}
 	ec.conflict[constraint] = string(action)
 	return ec
 }
@@ -286,8 +289,8 @@ func (ec *ExpresionChain) InsertMulti(insertPairs map[string][]interface{}) (*Ex
 			if len(v) != insertLen {
 				return nil, errors.Errorf("lenght of insert columns missmatch on column %s", k)
 			}
-			insertLen = len(v)
 		}
+		insertLen = len(v)
 	}
 	// This is not really necessary but it makes things a bit more deterministic when debugging.
 	sort.Strings(exprKeys)
@@ -300,7 +303,7 @@ func (ec *ExpresionChain) InsertMulti(insertPairs map[string][]interface{}) (*Ex
 		}
 	}
 	ec.mainOperation = &querySegmentAtom{
-		segment:   sqlInsert,
+		segment:   sqlInsertMulti,
 		expresion: strings.Join(exprKeys, ", "),
 		arguments: exprValues,
 		sqlBool:   SQLNothing,
@@ -463,7 +466,6 @@ func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) 
 
 	conflicts := []string{}
 	for k, v := range ec.conflict {
-
 		if v == "" {
 			continue
 		}
@@ -504,14 +506,16 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 	}
 	argCount := strings.Count(ec.mainOperation.expresion, ",") + 1
 	placeholders := make([]string, argCount, argCount)
-	for i := 0; i > argCount; i++ {
+	for i := 0; i < argCount; i++ {
 		placeholders[i] = "?"
 	}
+
 	values := make([]string, len(ec.mainOperation.arguments)/argCount,
 		len(ec.mainOperation.arguments)/argCount)
 	for i := 0; i < len(ec.mainOperation.arguments)/argCount; i++ {
 		values[i] += fmt.Sprintf("(%s)", strings.Join(placeholders, ", "))
 	}
+
 	args := make([]interface{}, 0)
 	args = append(args, ec.mainOperation.arguments...)
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
@@ -521,7 +525,6 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 
 	conflicts := []string{}
 	for k, v := range ec.conflict {
-
 		if v == "" {
 			continue
 		}
@@ -532,6 +535,7 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 	if len(conflicts) > 0 {
 		query += " " + strings.Join(conflicts, ", ")
 	}
+
 	if !raw {
 		// TODO: make this a bit less ugly
 		// TODO: identify escaped questionmarks
