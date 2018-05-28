@@ -57,7 +57,7 @@ For ease of use I provide [a wrapper](https://godoc.org/github.com/perrito666/bm
 
 DB.Clone returns a deep copy of the db.
 
-### EscapeArgs[EscapeArgs](https://godoc.org/github.com/perrito666/bmstrem/db/connection#EscapeArgs)
+### [EscapeArgs](https://godoc.org/github.com/perrito666/bmstrem/db/connection#EscapeArgs)
 
 EscapeArgs is in the wrong place in the code, but will do for now. This is something to be known before any querying function. To avoid the hassle of having to put `$<argnumber>` in each query argument placeholder, I have taken the convenience gorm provides and allow to use `?` as the placeholder. To allow for our lazy side to take over, we need to invoke EscapeArgs on the query and args to both check for number of arg consistency and properly escape the placeholders before calling any of the queries.
 
