@@ -2,8 +2,10 @@ package connection
 
 import (
 	"crypto/tls"
+	"fmt"
 
 	"github.com/perrito666/bmstrem/db/logging"
+	"github.com/pkg/errors"
 )
 
 // Information contains all required information to create a connection into a db.
@@ -65,4 +67,25 @@ type DB interface {
 	Set(set string) error
 	// BulkInsert Inserts in the most efficient way possible a lot of data.
 	BulkInsert(tableName string, columns []string, values [][]interface{}) (execError error)
+}
+
+// EscapeArgs return the query and args with the argument placeholder escaped.
+func EscapeArgs(query string, args []interface{}) (string, []interface{}, error) {
+	// TODO: make this a bit less ugly
+	// TODO: identify escaped questionmarks
+	queryWithArgs := ""
+	argCounter := 1
+	for _, queryChar := range query {
+		if queryChar == '?' {
+			queryWithArgs += fmt.Sprintf("$%d", argCounter)
+			argCounter++
+		} else {
+			queryWithArgs += string(queryChar)
+		}
+	}
+	if len(args) != argCounter-1 {
+		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
+			argCounter-1, len(args), queryWithArgs, args)
+	}
+	return queryWithArgs, args, nil
 }

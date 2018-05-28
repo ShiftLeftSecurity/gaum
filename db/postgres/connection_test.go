@@ -2,33 +2,29 @@ package postgres
 
 import (
 	"log"
+	"math/rand"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/perrito666/bmstrem/db/chain"
 	"github.com/perrito666/bmstrem/db/logging"
+	uuid "github.com/satori/go.uuid"
 
 	"github.com/perrito666/bmstrem/db/connection"
 )
 
-func TestConnector_QueryIter(t *testing.T) {
-	// Requirements for now
-	/*
-		docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=mysecretpassword -d postgres
+func cleanup(t *testing.T, db connection.DB) {
+	query := chain.NewExpresionChain(db)
+	query.Delete().Table("justforfun").Where("id > ?", 10)
+	err := query.Exec()
+	if err != nil {
+		t.Logf("failed cleanup queries: %v", err)
+		t.FailNow()
+	}
+}
 
-		CREATE TABLE justforfun (id int, description text);
-		INSERT INTO justforfun (id, description) VALUES (1, 'first');
-		INSERT INTO justforfun (id, description) VALUES (2, 'second');
-		INSERT INTO justforfun (id, description) VALUES (3, 'third');
-		INSERT INTO justforfun (id, description) VALUES (4, 'fourth');
-		INSERT INTO justforfun (id, description) VALUES (5, 'fift');
-		INSERT INTO justforfun (id, description) VALUES (6, 'sixt');
-		INSERT INTO justforfun (id, description) VALUES (7, 'seventh');
-		INSERT INTO justforfun (id, description) VALUES (8, 'eight');
-		INSERT INTO justforfun (id, description) VALUES (9, 'ninth');
-		INSERT INTO justforfun (id, description) VALUES (10, 'tenth');
-	*/
-
+func newDB(t *testing.T) connection.DB {
 	connector := Connector{
 		ConnectionString: "TODO",
 	}
@@ -48,6 +44,29 @@ func TestConnector_QueryIter(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed to connect to db: %v", err)
 	}
+	cleanup(t, db)
+	return db
+}
+
+func TestConnector_QueryIter(t *testing.T) {
+	// Requirements for now
+	/*
+		docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=mysecretpassword -d postgres
+
+		CREATE TABLE justforfun (id int, description text) CONSTRAINT therecanbeonlyone UNIQUE (id);
+		INSERT INTO justforfun (id, description) VALUES (1, 'first');
+		INSERT INTO justforfun (id, description) VALUES (2, 'second');
+		INSERT INTO justforfun (id, description) VALUES (3, 'third');
+		INSERT INTO justforfun (id, description) VALUES (4, 'fourth');
+		INSERT INTO justforfun (id, description) VALUES (5, 'fift');
+		INSERT INTO justforfun (id, description) VALUES (6, 'sixt');
+		INSERT INTO justforfun (id, description) VALUES (7, 'seventh');
+		INSERT INTO justforfun (id, description) VALUES (8, 'eight');
+		INSERT INTO justforfun (id, description) VALUES (9, 'ninth');
+		INSERT INTO justforfun (id, description) VALUES (10, 'tenth');
+	*/
+
+	db := newDB(t)
 	query := chain.NewExpresionChain(db)
 	query.Select("id, description").Table("justforfun").Where("id = ?", 1)
 
@@ -147,25 +166,7 @@ func TestConnector_QueryIter(t *testing.T) {
 
 func TestConnector_Query(t *testing.T) {
 
-	connector := Connector{
-		ConnectionString: "TODO",
-	}
-	defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
-	goLoggerWrapped := logging.NewGoLogger(defaultLogger)
-	db, err := connector.Open(
-		&connection.Information{
-			Host:             "127.0.0.1",
-			Port:             5432,
-			Database:         "postgres",
-			User:             "postgres",
-			Password:         "mysecretpassword",
-			MaxConnPoolConns: 10,
-			Logger:           goLoggerWrapped,
-		},
-	)
-	if err != nil {
-		t.Errorf("failed to connect to db: %v", err)
-	}
+	db := newDB(t)
 	type row struct {
 		Id          int
 		Description string
@@ -228,25 +229,7 @@ func TestConnector_Query(t *testing.T) {
 
 func TestConnector_Raw(t *testing.T) {
 
-	connector := Connector{
-		ConnectionString: "TODO",
-	}
-	defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
-	goLoggerWrapped := logging.NewGoLogger(defaultLogger)
-	db, err := connector.Open(
-		&connection.Information{
-			Host:             "127.0.0.1",
-			Port:             5432,
-			Database:         "postgres",
-			User:             "postgres",
-			Password:         "mysecretpassword",
-			MaxConnPoolConns: 10,
-			Logger:           goLoggerWrapped,
-		},
-	)
-	if err != nil {
-		t.Errorf("failed to connect to db: %v", err)
-	}
+	db := newDB(t)
 	type row struct {
 		Id          int
 		Description string
@@ -255,7 +238,7 @@ func TestConnector_Raw(t *testing.T) {
 	// Test Multiple row Iterator
 	query := chain.NewExpresionChain(db)
 	query.Select("id, description").Table("justforfun").Where("id = ?", 1)
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -269,4 +252,223 @@ func TestConnector_Raw(t *testing.T) {
 		t.FailNow()
 	}
 
+}
+
+func TestConnector_Insert(t *testing.T) {
+
+	db := newDB(t)
+	type row struct {
+		Id          int
+		Description string
+	}
+	aRow := row{}
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	tempDescriptionUUID := uuid.NewV4()
+	tempDescription := tempDescriptionUUID.String()
+	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	err := query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	rand.Seed(time.Now().UnixNano())
+	tempID := rand.Intn(11000)
+
+	insertQuery := chain.NewExpresionChain(db)
+	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
+		Table("justforfun")
+	err = insertQuery.Exec()
+	if err != nil {
+		t.Logf("failed to insert: %v", err)
+		t.FailNow()
+	}
+
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err != nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	if aRow.Id != tempID {
+		t.Logf("row Id is %d expected %d", aRow.Id, tempID)
+		t.FailNow()
+	}
+	if aRow.Description != tempDescription {
+		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription)
+		t.FailNow()
+	}
+
+}
+
+func TestConnector_InsertConstraint(t *testing.T) {
+
+	db := newDB(t)
+	type row struct {
+		Id          int
+		Description string
+	}
+	aRow := row{}
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	tempDescriptionUUID := uuid.NewV4()
+	tempDescription := tempDescriptionUUID.String()
+	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	err := query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	rand.Seed(time.Now().UnixNano())
+	tempID := rand.Intn(11000)
+
+	// First insert, this is to have a colliding value
+	insertQuery := chain.NewExpresionChain(db)
+	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
+		Table("justforfun")
+	err = insertQuery.Exec()
+	if err != nil {
+		t.Logf("failed to insert to test constraint: %v", err)
+		t.FailNow()
+	}
+
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err != nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	if aRow.Id != tempID {
+		t.Logf("row Id is %d expected %d", aRow.Id, tempID)
+		t.FailNow()
+	}
+	if aRow.Description != tempDescription {
+		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription)
+		t.FailNow()
+	}
+
+	// Second attempt at inserting, this should fail
+
+	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
+		Table("justforfun")
+	queryString, queryArgs, _ := insertQuery.Render()
+	t.Logf("conflicting insert query: %s", queryString)
+	t.Logf("conflicting insert args: %v", queryArgs)
+	err = insertQuery.Exec()
+	if err == nil {
+		t.Log("an insert that breaks an uniqueness constraint should not be allowed, yet it was")
+		t.FailNow()
+	}
+
+	// Third attempt, this should work
+	insertQuery.Conflict(chain.Constraint("therecanbeonlyone"), chain.ConflictActionNothing)
+	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
+		Table("justforfun")
+	queryString, queryArgs, _ = insertQuery.Render()
+	t.Logf("conflicting insert query: %s", queryString)
+	t.Logf("conflicting insert args: %v", queryArgs)
+	err = insertQuery.Exec()
+	if err != nil {
+		t.Logf("the insertion conflict should have been ignored, yet it wasnt: %v", err)
+		t.FailNow()
+	}
+}
+
+func TestConnector_Transaction(t *testing.T) {
+
+	db := newDB(t)
+	type row struct {
+		Id          int
+		Description string
+	}
+	aRow := row{}
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	tempDescriptionUUID := uuid.NewV4()
+	tempDescription := tempDescriptionUUID.String()
+	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	err := query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	rand.Seed(time.Now().UnixNano())
+	tempID := rand.Intn(11000)
+
+	transactionalDB, err := db.Clone().BeginTransaction()
+	if err != nil {
+		t.Logf("attempting to begin a transaction: %v", err)
+		t.FailNow()
+	}
+	// Let's try this with transactions
+	insertQuery := chain.NewExpresionChain(transactionalDB)
+	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
+		Table("justforfun")
+	err = insertQuery.Exec()
+	if err != nil {
+		t.Logf("an insert in a transaction was attempted but failed: %v", err)
+		t.FailNow()
+	}
+
+	// Transaction was not committed so no result should be here
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+
+	err = transactionalDB.RollbackTransaction()
+	if err != nil {
+		t.Logf("attempting to rollback a transaction: %v", err)
+		t.FailNow()
+	}
+
+	// Transaction was rolled back so still no row
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+
+	// a new transaction is required to try again.
+	transactionalDB, err = db.BeginTransaction()
+	if err != nil {
+		t.Logf("attempting to start a new transaction: %v", err)
+		t.FailNow()
+	}
+	insertQuery.NewDB(transactionalDB)
+
+	// lets insert with the idea of a commit now
+	err = insertQuery.Exec()
+	if err != nil {
+		t.Logf("an insert in a transaction was attempted but failed: %v", err)
+		t.FailNow()
+	}
+
+	// Transaction is still not committed so it should fail.
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+
+	// Commit the transaction
+	err = transactionalDB.CommitTransaction()
+	if err != nil {
+		t.Logf("attempting to commit a transaction: %v", err)
+		t.FailNow()
+	}
+
+	// let's make sure commit worked.
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err != nil {
+		t.Logf("transaction commit did not insert the object: %v", err)
+		t.FailNow()
+	}
+	if aRow.Id != tempID {
+		t.Logf("row Id is %d expected %d", aRow.Id, tempID)
+		t.FailNow()
+	}
+	if aRow.Description != tempDescription {
+		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription)
+		t.FailNow()
+	}
 }

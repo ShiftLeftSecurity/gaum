@@ -126,6 +126,12 @@ func (ec *ExpresionChain) Set(set string) *ExpresionChain {
 	return ec
 }
 
+// NewDB sets the passed db as this chain's db.
+func (ec *ExpresionChain) NewDB(db connection.DB) *ExpresionChain {
+	ec.db = db
+	return ec
+}
+
 // Clone returns a copy of the ExpresionChain
 func (ec *ExpresionChain) Clone() *ExpresionChain {
 	var limit *querySegmentAtom
@@ -236,7 +242,7 @@ func (ec *ExpresionChain) Select(fields ...string) *ExpresionChain {
 }
 
 // Delete determines a deletion will be made with the results of the query.
-func (ec *ExpresionChain) Delete(fields ...string) *ExpresionChain {
+func (ec *ExpresionChain) Delete() *ExpresionChain {
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlDelete,
 		arguments: nil,
@@ -245,10 +251,25 @@ func (ec *ExpresionChain) Delete(fields ...string) *ExpresionChain {
 	return ec
 }
 
+// ConflictAction represents a possible conflict resolution action.
+type ConflictAction string
+
+const (
+	// ConflictActionNothing represents a nil action on conflict
+	ConflictActionNothing ConflictAction = "NOTHING"
+)
+
+// Constraint wraps the passed constraint name with the required SQL to use it.
+func Constraint(constraint string) string {
+	return "ON CONSTRAINT " + constraint
+}
+
 // Conflict will add a "ON CONFLICT" clause at the end of the query if the main operation
 // is an INSERT.
-func (ec *ExpresionChain) Conflict(constraint, action string) *ExpresionChain {
-	ec.conflict[constraint] = action
+// This requires a constraint or field name because I really want to be explicit when things
+// are to be ignored.
+func (ec *ExpresionChain) Conflict(constraint string, action ConflictAction) *ExpresionChain {
+	ec.conflict[constraint] = string(action)
 	return ec
 }
 
@@ -425,7 +446,7 @@ func extract(ec *ExpresionChain, seg sqlSegment) []querySegmentAtom {
 }
 
 // RenderInsert does render for the very particular case of insert
-func (ec *ExpresionChain) RenderInsert() (string, []interface{}, error) {
+func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) {
 	if ec.table == "" {
 		return "", nil, errors.Errorf("no table specified for this insert")
 	}
@@ -434,9 +455,9 @@ func (ec *ExpresionChain) RenderInsert() (string, []interface{}, error) {
 		placeholders[i] = "?"
 	}
 	args := make([]interface{}, 0)
-	args = append(args, ec.table)
 	args = append(args, ec.mainOperation.arguments...)
-	query := fmt.Sprintf("INSERT INTO ? (%s) VALUES (%s)",
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
+		ec.table,
 		ec.mainOperation.expresion,
 		strings.Join(placeholders, ", "))
 
@@ -454,23 +475,30 @@ func (ec *ExpresionChain) RenderInsert() (string, []interface{}, error) {
 		query += " " + strings.Join(conflicts, ", ")
 	}
 
-	// TODO: make this a bit less ugly
-	// TODO: identify escaped questionmarks
-	queryWithArgs := ""
-	argCounter := 1
-	for _, queryChar := range query {
-		if queryChar == '?' {
-			queryWithArgs += fmt.Sprintf("$%d", argCounter)
-			argCounter++
-		} else {
-			queryWithArgs += string(queryChar)
+	if !raw {
+		// TODO: make this a bit less ugly
+		// TODO: identify escaped questionmarks
+		queryWithArgs := ""
+		argCounter := 1
+		for _, queryChar := range query {
+			if queryChar == '?' {
+				queryWithArgs += fmt.Sprintf("$%d", argCounter)
+				argCounter++
+			} else {
+				queryWithArgs += string(queryChar)
+			}
 		}
+		if len(args) != argCounter-1 {
+			return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
+				argCounter-1, len(args), queryWithArgs, args)
+		}
+		return queryWithArgs, args, nil
 	}
-	return queryWithArgs, args, nil
+	return query, args, nil
 }
 
 // RenderInsertMulti does render for the very particular case of insert
-func (ec *ExpresionChain) RenderInsertMulti() (string, []interface{}, error) {
+func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, error) {
 	if ec.table == "" {
 		return "", nil, errors.Errorf("no table specified for this insert")
 	}
@@ -485,9 +513,9 @@ func (ec *ExpresionChain) RenderInsertMulti() (string, []interface{}, error) {
 		values[i] += fmt.Sprintf("(%s)", strings.Join(placeholders, ", "))
 	}
 	args := make([]interface{}, 0)
-	args = append(args, ec.table)
 	args = append(args, ec.mainOperation.arguments...)
-	query := fmt.Sprintf("INSERT INTO ? (%s) VALUES %s",
+	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES %s",
+		ec.table,
 		ec.mainOperation.expresion,
 		strings.Join(values, ", "))
 
@@ -504,25 +532,41 @@ func (ec *ExpresionChain) RenderInsertMulti() (string, []interface{}, error) {
 	if len(conflicts) > 0 {
 		query += " " + strings.Join(conflicts, ", ")
 	}
-
-	// TODO: make this a bit less ugly
-	// TODO: identify escaped questionmarks
-	queryWithArgs := ""
-	argCounter := 1
-	for _, queryChar := range query {
-		if queryChar == '?' {
-			queryWithArgs += fmt.Sprintf("$%d", argCounter)
-			argCounter++
-		} else {
-			queryWithArgs += string(queryChar)
+	if !raw {
+		// TODO: make this a bit less ugly
+		// TODO: identify escaped questionmarks
+		queryWithArgs := ""
+		argCounter := 1
+		for _, queryChar := range query {
+			if queryChar == '?' {
+				queryWithArgs += fmt.Sprintf("$%d", argCounter)
+				argCounter++
+			} else {
+				queryWithArgs += string(queryChar)
+			}
 		}
+		if len(args) != argCounter-1 {
+			return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
+				argCounter-1, len(args), queryWithArgs, args)
+		}
+		return queryWithArgs, args, nil
 	}
-	return queryWithArgs, args, nil
+	return query, args, nil
 }
 
 // Render returns the SQL expresion string and the arguments of said expresion, there is no checkig
 // of validity or consistency for the time being.
 func (ec *ExpresionChain) Render() (string, []interface{}, error) {
+	return ec.render(false)
+}
+
+// RenderRaw returns the SQL expresion string and the arguments of said expresion,
+// No positional argument replacement is done.
+func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
+	return ec.render(true)
+}
+
+func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 	args := []interface{}{}
 	var query string
 	if ec.mainOperation == nil {
@@ -532,10 +576,10 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	switch ec.mainOperation.segment {
 	case sqlInsert:
 		// Too much of a special cookie for the general case.
-		return ec.RenderInsert()
+		return ec.renderInsert(raw)
 	case sqlInsertMulti:
 		// Too much of a special cookie for the general case.
-		return ec.RenderInsertMulti()
+		return ec.renderInsertMulti(raw)
 	// UPDATE
 	case sqlUpdate:
 		if ec.table == "" {
@@ -559,7 +603,7 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 			query = fmt.Sprintf("SELECT %s",
 				expresion)
 		} else {
-			query = "DELETE *"
+			query = "DELETE "
 		}
 		// FROM
 		if ec.table == "" {
@@ -640,21 +684,24 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 		}
 	}
 
-	// TODO: make this a bit less ugly
-	// TODO: identify escaped questionmarks
-	queryWithArgs := ""
-	argCounter := 1
-	for _, queryChar := range query {
-		if queryChar == '?' {
-			queryWithArgs += fmt.Sprintf("$%d", argCounter)
-			argCounter++
-		} else {
-			queryWithArgs += string(queryChar)
+	if !raw {
+		// TODO: make this a bit less ugly
+		// TODO: identify escaped questionmarks
+		queryWithArgs := ""
+		argCounter := 1
+		for _, queryChar := range query {
+			if queryChar == '?' {
+				queryWithArgs += fmt.Sprintf("$%d", argCounter)
+				argCounter++
+			} else {
+				queryWithArgs += string(queryChar)
+			}
 		}
+		if len(args) != argCounter-1 {
+			return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
+				argCounter-1, len(args), queryWithArgs, args)
+		}
+		return queryWithArgs, args, nil
 	}
-	if len(args) != argCounter-1 {
-		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
-			argCounter-1, len(args), queryWithArgs, args)
-	}
-	return queryWithArgs, args, nil
+	return query, args, nil
 }

@@ -96,7 +96,7 @@ func snakesToCamels(s string) string {
 func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
 	var rows *pgx.Rows
 	var err error
-	d.logger.Info(fmt.Sprintf("will use fields: %#v", fields))
+	d.logger.Debug(fmt.Sprintf("will use fields: %#v", fields))
 	if d.conn != nil {
 		rows, err = d.conn.Query(statement, args...)
 	} else {
@@ -282,6 +282,7 @@ func (d *DB) CommitTransaction() error {
 	if d.tx == nil {
 		return nil
 	}
+
 	return d.tx.Commit()
 }
 

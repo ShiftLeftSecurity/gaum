@@ -42,7 +42,10 @@ func (ec *ExpresionChain) Exec() (execError error) {
 		return errors.Wrap(execError, "rendering query to exec")
 	}
 	var db connection.DB
+	// default we use the current db and transaction
+	db = ec.db
 
+	// If Set is implied, we need to start a transaction
 	if ec.set != "" && !ec.db.IsTransaction() {
 		db, execError = ec.db.BeginTransaction()
 		if execError != nil {
