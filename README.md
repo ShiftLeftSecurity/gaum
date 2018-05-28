@@ -9,7 +9,7 @@ This library is, as it's name indicates, a bare minimum. It is not a "drop in" r
 
 How to use it, there are two components that can be used separately:
 
- * [The DB connector](#DB)
+ * [The DB connector](#db)
  * [The Chain](#chain)
 
  ## DB
@@ -63,7 +63,7 @@ EscapeArgs is in the wrong place in the code, but will do for now. This is somet
 
 ### DB.[QueryIter](https://godoc.org/github.com/perrito666/bmstrem/db/postgres#DB.QueryIter)
 
-See [EscapeArgs](#EscapeArgs)
+See [EscapeArgs](#escapeargs)
 
 QueryIter will execute the query and return a closure that holds the cursor. Calling the returned closure produces advancement of the cursor, one can pass the pointer to a struct that one wants populated. The rules for populating a struct are made from the passed list of fields (containing the column names to be fetched in the query, beware no consistency is checked until query time and by then all will go boom or you will be missing data) there will be snake to camel case conversion and matching that to the struct member name (or the contents of `bmstrem:"field_name:something"`). If no fields are specified we will make a query to the db to ask for a description of the fields returned, try not to let that happen.
 
@@ -73,7 +73,7 @@ Ideally this and all other queries will be used through chain that will take car
 
 ### DB.[Query](https://godoc.org/github.com/perrito666/bmstrem/db/postgres#DB.Query)
 
-See [EscapeArgs](#EscapeArgs)
+See [EscapeArgs](#escapeargs)
 
 Query will return a closure, similar to `QueryIter` but it will take a slice only since it will fetch all the results in one call and populate the slice. The rest of the behavior is the same.
 
@@ -81,14 +81,14 @@ Query will return a closure, similar to `QueryIter` but it will take a slice onl
 
 ### DB.[Raw](https://godoc.org/github.com/perrito666/bmstrem/db/postgres#DB.Raw)
 
-See [EscapeArgs](#EscapeArgs)
+See [EscapeArgs](#escapeargs)
 
 Raw will run the passed query with the passed arguments and try to fetch the resulting row into the passed pointer receivers, this will do for one row only and you have to be careful to pass enough receivers for the fields you are querying and no more.
 
 
 ### DB.[Exec](https://godoc.org/github.com/perrito666/bmstrem/db/postgres#DB.Exec)
 
-See [EscapeArgs](#EscapeArgs)
+See [EscapeArgs](#escapeargs)
 
 Exec is intended for queries that do not return results such as... well anything that is not a  `SELECT` you just pass the query and the arguments.
 
@@ -266,7 +266,7 @@ Returns the query and args but without replacement, ideal for subqueries or for 
 
 ### Running
 
-For running all the same functions that are available on [DB](#DB) are here but you don't need to pass on the query components, only the receivers, if any:
+For running all the same functions that are available on [DB](#db) are here but you don't need to pass on the query components, only the receivers, if any:
 
 * [Query](https://godoc.org/github.com/perrito666/bmstrem/db/chain#ExpresionChain.Query)
 * [QueryIter](https://godoc.org/github.com/perrito666/bmstrem/db/chain#ExpresionChain.QueryIter)
