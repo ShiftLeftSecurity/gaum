@@ -3,6 +3,8 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"os"
 	"reflect"
 	"strings"
 
@@ -29,7 +31,9 @@ const DefaultPGPoolMaxConn = 10
 func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 	// Ill be opinionated here and use the most efficient params.
 	var config pgx.ConnPoolConfig
+	var conLogger logging.Logger
 	if ci != nil {
+		conLogger = ci.Logger
 		config = pgx.ConnPoolConfig{
 			ConnConfig: pgx.ConnConfig{
 				Host:     ci.Host,
@@ -41,7 +45,7 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 				TLSConfig:         ci.TLSConfig,
 				UseFallbackTLS:    ci.UseFallbackTLS,
 				FallbackTLSConfig: ci.FallbackTLSConfig,
-				Logger:            logging.NewPgxLogAdapter(ci.Logger),
+				Logger:            logging.NewPgxLogAdapter(conLogger),
 			},
 			MaxConnections: ci.MaxConnPoolConns,
 		}
@@ -65,9 +69,12 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 				Logger:            logging.NewPgxLogAdapter(ci.Logger),
 			})
 		} else {
+			defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
+			csconfig.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
+			conLogger = logging.NewGoLogger(defaultLogger)
 			config = pgx.ConnPoolConfig{
+				MaxConnections: DefaultPGPoolMaxConn,
 				ConnConfig:     csconfig,
-				MaxConnections: ci.MaxConnPoolConns,
 			}
 		}
 
@@ -79,7 +86,7 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 	}
 	return &DB{
 		conn:   conn,
-		logger: ci.Logger,
+		logger: conLogger,
 	}, nil
 }
 

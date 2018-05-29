@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -448,6 +449,42 @@ func extract(ec *ExpresionChain, seg sqlSegment) []querySegmentAtom {
 	return qs
 }
 
+func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, error) {
+	// TODO: make this a bit less ugly
+	// TODO: identify escaped questionmarks
+	queryWithArgs := ""
+	argCounter := 1
+	argPositioner := 0
+	expandedArgs := []interface{}{}
+	for _, queryChar := range q {
+		if queryChar == '?' {
+			arg := args[argPositioner]
+			if reflect.TypeOf(arg).Kind() == reflect.Slice {
+				s := reflect.ValueOf(arg)
+				placeholders := []string{}
+				for i := 0; i < s.Len(); i++ {
+					expandedArgs = append(expandedArgs, s.Index(i))
+					placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
+					argCounter++
+				}
+				queryWithArgs += strings.Join(placeholders, ", ")
+			} else {
+				expandedArgs = append(expandedArgs, arg)
+				queryWithArgs += fmt.Sprintf("$%d", argCounter)
+				argCounter++
+			}
+			argPositioner++
+		} else {
+			queryWithArgs += string(queryChar)
+		}
+	}
+	if len(args) != argCounter-1 {
+		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
+			argCounter-1, len(args), queryWithArgs, args)
+	}
+	return queryWithArgs, args, nil
+}
+
 // RenderInsert does render for the very particular case of insert
 func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) {
 	if ec.table == "" {
@@ -478,23 +515,12 @@ func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) 
 	}
 
 	if !raw {
-		// TODO: make this a bit less ugly
-		// TODO: identify escaped questionmarks
-		queryWithArgs := ""
-		argCounter := 1
-		for _, queryChar := range query {
-			if queryChar == '?' {
-				queryWithArgs += fmt.Sprintf("$%d", argCounter)
-				argCounter++
-			} else {
-				queryWithArgs += string(queryChar)
-			}
+		var err error
+		query, args, err = marksToPlaceholders(query, args)
+		if err != nil {
+			return "", nil, errors.Wrap(err, "rendering insert")
 		}
-		if len(args) != argCounter-1 {
-			return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
-				argCounter-1, len(args), queryWithArgs, args)
-		}
-		return queryWithArgs, args, nil
+		return query, args, nil
 	}
 	return query, args, nil
 }
@@ -537,23 +563,12 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 	}
 
 	if !raw {
-		// TODO: make this a bit less ugly
-		// TODO: identify escaped questionmarks
-		queryWithArgs := ""
-		argCounter := 1
-		for _, queryChar := range query {
-			if queryChar == '?' {
-				queryWithArgs += fmt.Sprintf("$%d", argCounter)
-				argCounter++
-			} else {
-				queryWithArgs += string(queryChar)
-			}
+		var err error
+		query, args, err = marksToPlaceholders(query, args)
+		if err != nil {
+			return "", nil, errors.Wrap(err, "rendering insert multi")
 		}
-		if len(args) != argCounter-1 {
-			return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
-				argCounter-1, len(args), queryWithArgs, args)
-		}
-		return queryWithArgs, args, nil
+		return query, args, nil
 	}
 	return query, args, nil
 }
@@ -689,23 +704,12 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 	}
 
 	if !raw {
-		// TODO: make this a bit less ugly
-		// TODO: identify escaped questionmarks
-		queryWithArgs := ""
-		argCounter := 1
-		for _, queryChar := range query {
-			if queryChar == '?' {
-				queryWithArgs += fmt.Sprintf("$%d", argCounter)
-				argCounter++
-			} else {
-				queryWithArgs += string(queryChar)
-			}
+		var err error
+		query, args, err = marksToPlaceholders(query, args)
+		if err != nil {
+			return "", nil, errors.Wrap(err, "rendering query")
 		}
-		if len(args) != argCounter-1 {
-			return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
-				argCounter-1, len(args), queryWithArgs, args)
-		}
-		return queryWithArgs, args, nil
+		return query, args, nil
 	}
 	return query, args, nil
 }
