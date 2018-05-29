@@ -478,11 +478,11 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 			queryWithArgs += string(queryChar)
 		}
 	}
-	if len(args) != argCounter-1 {
+	if len(expandedArgs) != argCounter-1 {
 		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
 			argCounter-1, len(args), queryWithArgs, args)
 	}
-	return queryWithArgs, args, nil
+	return queryWithArgs, expandedArgs, nil
 }
 
 // RenderInsert does render for the very particular case of insert
