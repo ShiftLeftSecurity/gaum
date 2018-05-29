@@ -140,7 +140,19 @@ func MapFromTypeOf(tod reflect.Type,
 	return typeName, fieldMap, nil
 }
 
-// FieldRecipientsFromType returns an array of pointer to attributes fomr the passed in instance.
+// FieldNamesFromType returns a list of strings with the field names for sql extracted from a type
+func FieldNamesFromType(aType interface{}) []string {
+	tod := reflect.TypeOf(aType)
+	fields := []string{}
+	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
+		field := tod.Field(fieldIndex)
+		name := nameFromTagOrName(field)
+		fields = append(fields, name)
+	}
+	return fields
+}
+
+// FieldRecipientsFromType returns an array of pointer to attributes from the passed in instance.
 func FieldRecipientsFromType(logger logging.Logger, sqlFields []string,
 	fieldMap map[string]reflect.StructField, aType interface{}) []interface{} {
 	vod := reflect.ValueOf(aType)

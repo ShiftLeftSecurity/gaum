@@ -28,21 +28,51 @@ const DefaultPGPoolMaxConn = 10
 // Open opens a connection to postgres and returns it wrapped into a connection.DB
 func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 	// Ill be opinionated here and use the most efficient params.
-	config := pgx.ConnPoolConfig{
-		ConnConfig: pgx.ConnConfig{
-			Host:     ci.Host,
-			Port:     ci.Port,
-			Database: ci.Database,
-			User:     ci.User,
-			Password: ci.Password,
+	var config pgx.ConnPoolConfig
+	if ci != nil {
+		config = pgx.ConnPoolConfig{
+			ConnConfig: pgx.ConnConfig{
+				Host:     ci.Host,
+				Port:     ci.Port,
+				Database: ci.Database,
+				User:     ci.User,
+				Password: ci.Password,
 
-			TLSConfig:         ci.TLSConfig,
-			UseFallbackTLS:    ci.UseFallbackTLS,
-			FallbackTLSConfig: ci.FallbackTLSConfig,
-			Logger:            logging.NewPgxLogAdapter(ci.Logger),
-		},
-		MaxConnections: ci.MaxConnPoolConns,
+				TLSConfig:         ci.TLSConfig,
+				UseFallbackTLS:    ci.UseFallbackTLS,
+				FallbackTLSConfig: ci.FallbackTLSConfig,
+				Logger:            logging.NewPgxLogAdapter(ci.Logger),
+			},
+			MaxConnections: ci.MaxConnPoolConns,
+		}
 	}
+	if c.ConnectionString != "" {
+		csconfig, err := pgx.ParseConnectionString(c.ConnectionString)
+		if err != nil {
+			return nil, errors.Wrap(err, "parsing connection string")
+		}
+		if ci != nil {
+			config.ConnConfig = csconfig.Merge(pgx.ConnConfig{
+				Host:     ci.Host,
+				Port:     ci.Port,
+				Database: ci.Database,
+				User:     ci.User,
+				Password: ci.Password,
+
+				TLSConfig:         ci.TLSConfig,
+				UseFallbackTLS:    ci.UseFallbackTLS,
+				FallbackTLSConfig: ci.FallbackTLSConfig,
+				Logger:            logging.NewPgxLogAdapter(ci.Logger),
+			})
+		} else {
+			config = pgx.ConnPoolConfig{
+				ConnConfig:     csconfig,
+				MaxConnections: ci.MaxConnPoolConns,
+			}
+		}
+
+	}
+
 	conn, err := pgx.NewConnPool(config)
 	if err != nil {
 		return nil, errors.Wrap(err, "connecting to postgres database")
