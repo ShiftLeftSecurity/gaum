@@ -32,7 +32,7 @@ How to use it, there are two components that can be used separately:
  var connector connection.DatabaseHandler
  
  connector = postgres.Connector{
-		ConnectionString: "TODO",
+		ConnectionString: "a connection string",
 	}
  
  db, err := connector.Open(
@@ -47,6 +47,8 @@ How to use it, there are two components that can be used separately:
 		},
 	)
 ```
+The connection string is enough to open a connection but if `Open` receives a non nil parameter the overlapping parameters will be taken from the `connection.Information` in the `Open` invocation.
+
 The [Information](https://godoc.org/github.com/perrito666/bmstrem/db/connection#Information) struct contains most of the possible data one can use for a connection, strongly biased to postgres.
 
 The only note worthy item on the above example is `goLoggerWrapped` which is an instance of [`logging.Logger`](https://godoc.org/github.com/perrito666/bmstrem/db/logging#Logger) which is basically an Interface for logging that I consider sane enough and that I in turn addapt to what [`pgx`](https://godoc.org/github.com/jackc/pgx) takes.
