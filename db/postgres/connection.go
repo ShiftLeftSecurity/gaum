@@ -201,6 +201,9 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 	var fieldMap map[string]reflect.StructField
 
 	return func(destination interface{}) error {
+		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
+			return errors.Errorf("the passed receiver is not a pointer, connection is still open")
+		}
 		// TODO add a timer that closes rows if nothing is done.
 		defer rows.Close()
 		var err error

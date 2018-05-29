@@ -460,60 +460,10 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 		if queryChar == '?' {
 			arg := args[argPositioner]
 			if reflect.TypeOf(arg).Kind() == reflect.Slice {
-				subArgs := []interface{}{}
-				switch value := arg.(type) {
-				case []int:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []int8:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []int16:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []int32:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []int64:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []uint:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []uint8:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []uint16:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []uint32:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []uint64:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []string:
-					for _, v := range value {
-						subArgs = append(subArgs, v)
-					}
-				case []interface{}:
-					subArgs = value
-				default:
-					return "", nil, errors.Errorf("slice is not of a supported type: %T", arg)
-				}
+				s := reflect.ValueOf(arg)
 				placeholders := []string{}
-				for i := 0; i < len(subArgs); i++ {
-					expandedArgs = append(expandedArgs, subArgs[i])
+				for i := 0; i < s.Len(); i++ {
+					expandedArgs = append(expandedArgs, s.Index(i).Interface())
 					placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
 					argCounter++
 				}
