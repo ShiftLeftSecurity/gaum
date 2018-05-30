@@ -35,6 +35,18 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic selection with where and helpers",
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+				Table("convenient_table").
+				AndWhere(GreaterThan("field1", 1)).
+				AndWhere(Equals("field2", 2)).
+				AndWhere(GreaterThan("field3", "pajarito")).
+				OrWhere(In("field3", "pajarito", "gatito", "perrito")),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 == $2 AND field3 > $3 OR field3 IN ($4, $5, $6)",
+			wantArgs: []interface{}{1, 2, "pajarito", "pajarito", "gatito", "perrito"},
+			wantErr:  false,
+		},
+		{
 			name: "basic selection with or where",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").

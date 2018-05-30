@@ -121,6 +121,13 @@ Crafting the SQL is made by just calling the corresponding methods for the SQL w
 chain.Select("one", "two", "three as four")
 ```
 
+or, with helper `chain.AS`
+
+```golang
+chain.Select("one", "two", chain.As("three", "four"))
+```
+
+
 will produce (not really, it will fail at the lack of a table):
 
 ```sql
@@ -141,9 +148,30 @@ SELECT one, two, three FROM something
 
 #### Where
 
+The available helpers for `AndWhere`/`OrWhere` are:
+
+* Equals
+* GreaterThan
+* GreaterOrEqualThan
+* LesserThan
+* LesserOrEqualThan
+* In
+
+all in the for `func Helper(field, ...args) (string, []interface{})` which can be used directly as a replacement of a where statement arguments. When using helpers the best way to write a statement is with one condition per Where.
+
 ```golang
 chain.Select("one", "two", "three as four").Table("something").AndWhere("arg1=?", 1).AndWhere("arg2>?", 4).AndWhere("arg4 = ?", 3)
 ``` 
+
+or with helpers
+
+```golang
+chain.Select("one", "two", chain.As("three","four")).Table("something").
+AndWhere(chain.Equals("arg1", 1)).
+AndWhere(chain.GreaterThan("arg2", 4)).
+AndWhere(chain.Equals("arg4", 3))
+``` 
+
 will produce :
 
 ```sql
