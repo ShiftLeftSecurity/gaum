@@ -217,7 +217,11 @@ func (ec *ExpresionChain) mutateLastBool(operation sqlBool) {
 	}
 }
 
-// AndWhereGroup adds a AND ( a = b AND/OR c = d...)
+// AndWhereGroup adds an AND ( a = b AND/OR c = d...) basically a group of conditions preceded by
+// AND unless it's the first condition then just the group.
+// It takes an expression chain as a parameter which does not need an DB or any other expresion
+// other than WHEREs `(&ExpressionChain{}).AndWhere(...).OrWhere(...)`
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) AndWhereGroup(c *ExpresionChain) *ExpresionChain {
 	wheres, whereArgs := c.renderWhereRaw()
 	if len(whereArgs) > 0 {
@@ -226,7 +230,11 @@ func (ec *ExpresionChain) AndWhereGroup(c *ExpresionChain) *ExpresionChain {
 	return ec
 }
 
-// OrWhereGroup adds a OR ( a = b AND/OR c = d...)
+// OrWhereGroup adds an OR ( a = b AND/OR c = d...) basically a group of conditions preceded by
+// OR unless it's the first condition and there are no ANDs present.
+// It takes an expression chain as a parameter which does not need an DB or any other expresion
+// other than WHEREs `(&ExpressionChain{}).AndWhere(...).OrWhere(...)`
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) OrWhereGroup(c *ExpresionChain) *ExpresionChain {
 	wheres, whereArgs := c.renderWhereRaw()
 	if len(whereArgs) > 0 {
@@ -369,6 +377,7 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 }
 
 // Update set fields/values for updates.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionChain {
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlUpdate,
@@ -380,6 +389,7 @@ func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionCha
 }
 
 // Table sets the table to be used in the 'FROM' expresion.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) Table(table string) *ExpresionChain {
 	ec.setTable(table)
 	return ec
@@ -481,6 +491,9 @@ func extract(ec *ExpresionChain, seg sqlSegment) []querySegmentAtom {
 	return qs
 }
 
+// marks to placeholder replaces `?` in the query with `$1` style placeholders, this must be
+// done with a finished query and requires the args as they depend on the position of the
+// already rendered query, it does some consistency control and finally expands `(?)`.
 func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, error) {
 	// TODO: make this a bit less ugly
 	// TODO: identify escaped questionmarks
@@ -557,7 +570,7 @@ func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) 
 	return query, args, nil
 }
 
-// RenderInsertMulti does render for the very particular case of insert
+// renderInsertMulti does render for the very particular case of a multiple insertion
 func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, error) {
 	if ec.table == "" {
 		return "", nil, errors.Errorf("no table specified for this insert")
@@ -617,6 +630,8 @@ func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
 	return ec.render(true)
 }
 
+// renderWhereRaw renders only the where portion of an ExpresionChain and returns it without
+// placeholder markers replaced.
 func (ec *ExpresionChain) renderWhereRaw() (string, []interface{}) {
 	// WHERE
 	wheres := extract(ec, sqlWhere)
@@ -647,6 +662,8 @@ func (ec *ExpresionChain) renderWhereRaw() (string, []interface{}) {
 	return "", nil
 }
 
+// render returns the rendered expression along with an arguments list and all marker placeholders
+// replaced by their positional placeholder.
 func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 	args := []interface{}{}
 	var query string

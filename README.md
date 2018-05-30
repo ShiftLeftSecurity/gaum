@@ -118,10 +118,10 @@ Crafting the SQL is made by just calling the corresponding methods for the SQL w
 #### Select
 
 ```golang
-chain.Select("one, two, three as four")
+chain.Select("one", "two", "three as four")
 ```
 
-will produce:
+will produce (not really, it will fail at the lack of a table):
 
 ```sql
 SELECT one, two, three
@@ -130,7 +130,7 @@ SELECT one, two, three
 #### Table
 
 ```golang
-chain.Select("one, two, three as four").Table("something")
+chain.Select("one", "two", "three as four").Table("something")
 ``` 
 
 will produce:
@@ -142,7 +142,7 @@ SELECT one, two, three FROM something
 #### Where
 
 ```golang
-chain.Select("one, two, three as four").Table("something").Where("arg1=? AND arg2>?", 1,4).Where("arg4 = ?", 3)
+chain.Select("one", "two", "three as four").Table("something").AndWhere("arg1=?", 1).AndWhere("arg2>?", 4).AndWhere("arg4 = ?", 3)
 ``` 
 will produce :
 
@@ -153,8 +153,7 @@ SELECT one, two, three FROM something WHERE arg1=$1 AND arg2>$2 AND arg4 = $3
 Using **Or**
 
 ```golang
-query := chain.Select("one, two, three as four").Table("something").Where("arg1=? AND arg2>?", 1,4).Where("arg4 = ?", 3)
-chain.Or(query.Where("other_condition = ?", 1))
+query := chain.Select("one", "two", "three as four").Table("something").AndWhere("arg1=?", 1).AndWhere("arg2>?", 4).AndWhere("arg4 = ?", 3).OrWhere("other_condition = ?", 1)
 ``` 
 will produce :
 
@@ -162,16 +161,15 @@ will produce :
 SELECT one, two, three FROM something WHERE arg1=$1 AND arg2>$2 AND arg4 = $3 OR other_condition = $4
 ```
 
-Using **Not**
+Using **Groups** (`AndWhereGroup` and `OrWhereGroup`)
 
 ```golang
-query := chain.Select("one, two, three as four").Table("something").Where("arg1=? AND arg2>?", 1,4).Where("arg4 = ?", 3)
-chain.Not(query.Where("other_condition = ?", 1))
+query := chain.Select("one", "two", "three as four").Table("something").AndWhere("arg1=?", 1).AndWhere("arg2>?", 4).AndWhere("arg4 = ?", 3).OrWhereGroup((&ExpresionChain{}).AndWhere("inner == ?", 1).AndWhere("inner2 > ?", 2))
 ``` 
 will produce :
 
 ```sql
-SELECT one, two, three FROM something WHERE arg1=$1 AND arg2>$2 AND arg4 = $3 AND NOT othe
+SELECT one, two, three FROM something WHERE arg1=$1 AND arg2>$2 AND arg4 = $3 OR (inner == $4 AND inner2 == $5)
 ```
 
 #### Insert
