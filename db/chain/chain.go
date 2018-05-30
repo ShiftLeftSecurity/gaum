@@ -217,16 +217,48 @@ func (ec *ExpresionChain) mutateLastBool(operation sqlBool) {
 	}
 }
 
-// Where adds a 'WHERE' to the 'ExpresionChain' and returns the same chan to facilitate
+// AndWhereGroup adds a AND ( a = b AND/OR c = d...)
+func (ec *ExpresionChain) AndWhereGroup(c *ExpresionChain) *ExpresionChain {
+	wheres, whereArgs := c.renderWhereRaw()
+	if len(whereArgs) > 0 {
+		return ec.AndWhere(fmt.Sprintf("(%s)", wheres), whereArgs...)
+	}
+	return ec
+}
+
+// OrWhereGroup adds a OR ( a = b AND/OR c = d...)
+func (ec *ExpresionChain) OrWhereGroup(c *ExpresionChain) *ExpresionChain {
+	wheres, whereArgs := c.renderWhereRaw()
+	if len(whereArgs) > 0 {
+		return ec.OrWhere(fmt.Sprintf("(%s)", wheres), whereArgs...)
+	}
+	return ec
+}
+
+// AndWhere adds a 'AND WHERE' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) Where(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) AndWhere(expr string, args ...interface{}) *ExpresionChain {
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlWhere,
 			expresion: expr,
 			arguments: args,
 			sqlBool:   SQLAnd,
+		})
+	return ec
+}
+
+// OrWhere adds a 'OR WHERE' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) OrWhere(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlWhere,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLOr,
 		})
 	return ec
 }
@@ -585,6 +617,36 @@ func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
 	return ec.render(true)
 }
 
+func (ec *ExpresionChain) renderWhereRaw() (string, []interface{}) {
+	// WHERE
+	wheres := extract(ec, sqlWhere)
+	// Separate where statements that are not ANDed since they will need
+	// to go after others with AND.
+	whereOrs := []querySegmentAtom{}
+	if len(wheres) != 0 {
+		whereStatement := ""
+		args := []interface{}{}
+		whereCount := 0
+		for i, item := range wheres {
+			if item.sqlBool != SQLAnd {
+				whereOrs = append(whereOrs, item)
+				continue
+			}
+			expr, arguments := item.render(i == 0, i == len(wheres)-1)
+			whereStatement += expr
+			args = append(args, arguments...)
+			whereCount++
+		}
+		for i, item := range whereOrs {
+			expr, arguments := item.render(whereCount+i == 0, i == len(whereOrs)-1)
+			whereStatement += expr
+			args = append(args, arguments...)
+		}
+		return whereStatement, args
+	}
+	return "", nil
+}
+
 func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 	args := []interface{}{}
 	var query string
@@ -648,16 +710,12 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 			args = append(args, joinArguments...)
 		}
 	}
+
 	// WHERE
-	wheres := extract(ec, sqlWhere)
-	if len(wheres) != 0 {
-		whereStatement := " WHERE"
-		for i, item := range wheres {
-			expr, arguments := item.render(i == 0, i == len(wheres)-1)
-			whereStatement += expr
-			args = append(args, arguments...)
-		}
-		query += whereStatement
+	wheres, whereArgs := ec.renderWhereRaw()
+	if len(whereArgs) != 0 {
+		query += " WHERE" + wheres
+		args = append(args, whereArgs...)
 	}
 
 	// GROUP BY

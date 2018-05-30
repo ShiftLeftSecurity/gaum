@@ -16,7 +16,7 @@ import (
 
 func cleanup(t *testing.T, db connection.DB) {
 	query := chain.NewExpresionChain(db)
-	query.Delete().Table("justforfun").Where("id > ?", 10)
+	query.Delete().Table("justforfun").AndWhere("id > ?", 10)
 	err := query.Exec()
 	if err != nil {
 		t.Logf("failed cleanup queries: %v", err)
@@ -68,7 +68,7 @@ func TestConnector_QueryIter(t *testing.T) {
 
 	db := newDB(t)
 	query := chain.NewExpresionChain(db)
-	query.Select("id, description").Table("justforfun").Where("id = ?", 1)
+	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
 
 	// Debug print query
 	q, args, err := query.Render()
@@ -237,7 +237,7 @@ func TestConnector_Raw(t *testing.T) {
 	aRow := row{}
 	// Test Multiple row Iterator
 	query := chain.NewExpresionChain(db)
-	query.Select("id, description").Table("justforfun").Where("id = ?", 1)
+	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
 	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
@@ -266,7 +266,7 @@ func TestConnector_Insert(t *testing.T) {
 	query := chain.NewExpresionChain(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
-	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
 	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
@@ -313,14 +313,14 @@ func TestConnector_MultiInsert(t *testing.T) {
 	query1 := query.Clone()
 	tempDescription := uuid.NewV4().String()
 	tempDescription1 := uuid.NewV4().String()
-	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
 	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
 	}
 
-	query1.Select("id, description").Table("justforfun").Where("description = ?", tempDescription1)
+	query1.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription1)
 	err = query1.Raw(&aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our second description should fail, this record should not exist")
@@ -384,7 +384,7 @@ func TestConnector_InsertConstraint(t *testing.T) {
 	query := chain.NewExpresionChain(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
-	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
 	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
@@ -454,7 +454,7 @@ func TestConnector_Transaction(t *testing.T) {
 	query := chain.NewExpresionChain(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
-	query.Select("id, description").Table("justforfun").Where("description = ?", tempDescription)
+	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
 	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
