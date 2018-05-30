@@ -1,3 +1,17 @@
+//    Copyright 2018 Horacio Duran <horacio@shiftleft.io>, ShiftLeft Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package postgres
 
 import (
@@ -8,12 +22,12 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/perrito666/bmstrem/db/logging"
-	"github.com/perrito666/bmstrem/db/srm"
+	"github.com/ShiftLeftSecurity/gaum/db/logging"
+	"github.com/ShiftLeftSecurity/gaum/db/srm"
 	"github.com/pkg/errors"
 
+	"github.com/ShiftLeftSecurity/gaum/db/connection"
 	"github.com/jackc/pgx"
-	"github.com/perrito666/bmstrem/db/connection"
 )
 
 var _ connection.DatabaseHandler = &Connector{}

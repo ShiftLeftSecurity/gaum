@@ -1,3 +1,17 @@
+//    Copyright 2018 Horacio Duran <horacio@shiftleft.io>, ShiftLeft Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 package srm
 
 import (
@@ -5,7 +19,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/perrito666/bmstrem/db/logging"
+	"github.com/ShiftLeftSecurity/gaum/db/logging"
 	"github.com/pkg/errors"
 )
 
@@ -18,11 +32,11 @@ var ErrInquisition = errors.Errorf("found an unexpected type")
 const (
 	// SubTagNameFieldName holds the name of a sub-tag containing the sql field for a struct attribute.
 	SubTagNameFieldName = "field_name"
-	// TagName holds the name of the tag that contains all of bmstrem possible sub tags.
-	TagName = "bmstrem"
+	// TagName holds the name of the tag that contains all of gaum possible sub tags.
+	TagName = "gaum"
 )
 
-// nameFromTagOrName extracts field name from `bmstrem:"field_name:something"` or returns the
+// nameFromTagOrName extracts field name from `gaum:"field_name:something"` or returns the
 // field name.
 func nameFromTagOrName(field reflect.StructField) string {
 	tag := field.Tag
