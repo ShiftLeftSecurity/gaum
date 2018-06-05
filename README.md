@@ -1,5 +1,6 @@
 # gaum
-Bare Minimum Struct Relational Mapping
+
+*A story about Bare Minimum Struct Relational Mapping, by Horacio Duran*
 
 This intends to provide a bare minimum ORM-Like-but-not-quite interface to work with postgres.
 
