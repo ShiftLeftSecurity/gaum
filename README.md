@@ -15,7 +15,7 @@ How to use it, there are two components that can be used separately:
 
  ## DB
  
- **Note** all the examples in this doc are using the [postgres](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres) driver because it is the itch I am scratching, I do not indend to write other drivers and most of the code will be strongly opinionated towards postgres, this said, if someone else feels like writing different drivers I'll gladly accept PRs
+ **Note** all the examples in this doc are using the [postgres](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres) driver because it is the itch I am scratching, I do not intend to write other drivers and most of the code will be strongly opinionated towards postgres, this said, if someone else feels like writing different drivers I'll gladly accept PRs
  
  The [**DB**](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DB) component provides a set of convenience functions that allow querying and executing statements in the db and retrieving the results if any.
  
@@ -265,7 +265,7 @@ SELECT one, two, three as four, other.five FROM something JOIN other ON field = 
 #### Delete
 
 ```golang
-chain.Delet().Table("something").Where("arg1=? AND arg2>?", 1,4)
+chain.Delete().Table("something").Where("arg1=? AND arg2>?", 1,4)
 ```
 
 will produce:
