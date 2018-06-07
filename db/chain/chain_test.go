@@ -42,9 +42,9 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 == $2 AND field3 > $3",
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3",
 			wantArgs: []interface{}{1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -56,7 +56,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere(Equals("field2", 2)).
 				AndWhere(GreaterThan("field3", "pajarito")).
 				OrWhere(In("field3", "pajarito", "gatito", "perrito")),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 == $2 AND field3 > $3 OR field3 IN ($4, $5, $6)",
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 OR field3 IN ($4, $5, $6)",
 			wantArgs: []interface{}{1, 2, "pajarito", "pajarito", "gatito", "perrito"},
 			wantErr:  false,
 		},
@@ -65,9 +65,9 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				OrWhere("field3 > ?", "pajarito"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 == $2 OR field3 > $3",
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR field3 > $3",
 			wantArgs: []interface{}{1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -76,9 +76,9 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
-				OrWhereGroup((&ExpresionChain{}).AndWhere("inner == ?", 1).AndWhere("inner2 > ?", 2)),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 == $2 OR ( inner == $3 AND inner2 > $4)",
+				AndWhere("field2 = ?", 2).
+				OrWhereGroup((&ExpresionChain{}).AndWhere("inner = ?", 1).AndWhere("inner2 > ?", 2)),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR ( inner = $3 AND inner2 > $4)",
 			wantArgs: []interface{}{1, 2, 1, 2},
 			wantErr:  false,
 		},
@@ -87,10 +87,10 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4",
+			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -99,10 +99,10 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Delete().
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "DELETE  FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4",
+			want:     "DELETE  FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -135,11 +135,11 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				OrderBy("field2, field3").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4 ORDER BY field2, field3",
+			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 ORDER BY field2, field3",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -148,11 +148,11 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				GroupBy("field2, field3").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4 GROUP BY field2, field3",
+			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 GROUP BY field2, field3",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -161,13 +161,13 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				GroupBy("field2, field3").
 				Limit(100).
 				Offset(10).
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 == $3 AND field3 > $4 GROUP BY field2, field3 LIMIT 100 OFFSET 10",
+			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 GROUP BY field2, field3 LIMIT 100 OFFSET 10",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -176,10 +176,10 @@ func TestExpresionChain_Render(t *testing.T) {
 			chain: (&ExpresionChain{}).Update("field1 = ?, field3 = ?", "value2", 9).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
-				AndWhere("field2 == ?", 2).
+				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "UPDATE $1 SET (field1 = $2, field3 = $3) JOIN another_convenient_table ON pirulo = $4 WHERE field1 > $5 AND field2 == $6 AND field3 > $7",
+			want:     "UPDATE $1 SET (field1 = $2, field3 = $3) JOIN another_convenient_table ON pirulo = $4 WHERE field1 > $5 AND field2 = $6 AND field3 > $7",
 			wantArgs: []interface{}{"convenient_table", "value2", 9, "unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
