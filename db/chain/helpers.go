@@ -45,7 +45,7 @@ func As(field, alias string) string {
 
 // Equals is a convenience function to enable use of go for where definitions
 func Equals(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s == ?", field), value
+	return fmt.Sprintf("%s = ?", field), value
 }
 
 // NotEquals is a convenience function to enable use of go for where definitions
