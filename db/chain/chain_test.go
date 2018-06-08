@@ -55,8 +55,10 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere(GreaterThan("field1", 1)).
 				AndWhere(Equals("field2", 2)).
 				AndWhere(GreaterThan("field3", "pajarito")).
-				OrWhere(In("field3", "pajarito", "gatito", "perrito")),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 OR field3 IN ($4, $5, $6)",
+				OrWhere(In("field3", "pajarito", "gatito", "perrito")).
+				AndWhere(Null("field4")).
+				AndWhere(NotNull("field5")),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 AND field4 IS NULL AND field5 IS NOT NULL OR field3 IN ($4, $5, $6)",
 			wantArgs: []interface{}{1, 2, "pajarito", "pajarito", "gatito", "perrito"},
 			wantErr:  false,
 		},

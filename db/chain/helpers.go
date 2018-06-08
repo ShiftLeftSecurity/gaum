@@ -16,6 +16,9 @@ package chain
 
 import "fmt"
 
+// NullValue represents the NULL value in SQL
+const NullValue = "NULL"
+
 // Constraint wraps the passed constraint name with the required SQL to use it.
 func Constraint(constraint string) string {
 	return "ON CONSTRAINT " + constraint
@@ -76,4 +79,14 @@ func LesserOrEqualThan(field string, value ...interface{}) (string, []interface{
 // In is a convenience function to enable use of go for where definitions
 func In(field string, value ...interface{}) (string, []interface{}) {
 	return fmt.Sprintf("%s IN (?)", field), value
+}
+
+// NotNull is a convenience function to enable use of go for where definitions
+func NotNull(field string) string {
+	return fmt.Sprintf("%s IS NOT NULL", field)
+}
+
+// Null is a convenience function to enable use of go for where definitions
+func Null(field string) string {
+	return fmt.Sprintf("%s IS NULL", field)
 }
