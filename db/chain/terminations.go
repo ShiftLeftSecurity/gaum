@@ -98,7 +98,11 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "rendering query to raw query")
 	}
-	return ec.db.Raw(q, args, fields...)
+	err = ec.db.Raw(q, args, fields...)
+	if err == ErrNoRows {
+		return err
+	}
+	return errors.Wrap(err, "running a raw query from within a chain")
 }
 
 // TODO add batch running of many chains.

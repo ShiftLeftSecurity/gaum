@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/ShiftLeftSecurity/gaum/db/chain"
 	"github.com/ShiftLeftSecurity/gaum/db/logging"
 	"github.com/ShiftLeftSecurity/gaum/db/srm"
 	"github.com/pkg/errors"
@@ -287,6 +288,9 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 
 	// Try to fetch the data
 	err := rows.Scan(fields...)
+	if err == pgx.ErrNoRows {
+		return chain.ErrNoRows
+	}
 	if err != nil {
 		return errors.Wrap(err, "scanning values into recipient")
 	}
