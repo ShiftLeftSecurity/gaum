@@ -96,7 +96,7 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 	}
 	q, args, err := ec.Render()
 	if err != nil {
-		errors.Wrap(err, "rendering query to raw query")
+		return errors.Wrap(err, "rendering query to raw query")
 	}
 	return ec.db.Raw(q, args, fields...)
 }

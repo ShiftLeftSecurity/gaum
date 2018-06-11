@@ -38,6 +38,16 @@ func TestExpresionChain_Render(t *testing.T) {
 		wantErr  bool
 	}{
 		{
+			name: "basic selection without table",
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				AndWhere("field3 > ?", "pajarito"),
+			want:     "",
+			wantArgs: nil,
+			wantErr:  true,
+		},
+		{
 			name: "basic selection with where",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").

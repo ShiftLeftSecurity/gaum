@@ -266,6 +266,13 @@ func TestConnector_Raw(t *testing.T) {
 		t.FailNow()
 	}
 
+	query = chain.NewExpresionChain(db)
+	query.Select("id, description").AndWhere("id = ?", 1)
+	err = query.Raw(&aRow.Id, &aRow.Description)
+	if err == nil {
+		t.Errorf("should have failed because of invalid query")
+	}
+
 }
 
 func TestConnector_Insert(t *testing.T) {
