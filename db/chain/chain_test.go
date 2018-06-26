@@ -191,8 +191,8 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
-			want:     "UPDATE $1 SET (field1 = $2, field3 = $3) JOIN another_convenient_table ON pirulo = $4 WHERE field1 > $5 AND field2 = $6 AND field3 > $7",
-			wantArgs: []interface{}{"convenient_table", "value2", 9, "unpirulo", 1, 2, "pajarito"},
+			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
+			wantArgs: []interface{}{"value2", 9, "unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
 	}

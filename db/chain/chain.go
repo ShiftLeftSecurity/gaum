@@ -594,7 +594,7 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		if len(expresion) == 0 {
 			return "", nil, errors.Errorf("empty update expresion")
 		}
-		query = fmt.Sprintf("UPDATE %s SET (%s)",
+		query = fmt.Sprintf("UPDATE %s SET %s",
 			ec.table, ec.mainOperation.expresion)
 		args = append(args, ec.mainOperation.arguments...)
 	// SELECT, DELETE
