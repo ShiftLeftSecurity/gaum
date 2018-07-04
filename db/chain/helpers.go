@@ -90,3 +90,11 @@ func NotNull(field string) string {
 func Null(field string) string {
 	return fmt.Sprintf("%s IS NULL", field)
 }
+
+// INSERT/UPDATE helpers
+
+// SetToCurrentTimestamp crafts a postgres SQL assignement of the field to the current timestamp
+// with timezone.
+func SetToCurrentTimestamp(field string) string {
+	return fmt.Sprintf("%s = CURRENT_TIMESTAMP", field)
+}

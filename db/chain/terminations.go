@@ -16,6 +16,7 @@ package chain
 
 import (
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
+	gaumErrors "github.com/ShiftleftSecurity/gaum/db/errors"
 	"github.com/pkg/errors"
 )
 
@@ -99,7 +100,7 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 		return errors.Wrap(err, "rendering query to raw query")
 	}
 	err = ec.db.Raw(q, args, fields...)
-	if err == ErrNoRows {
+	if err == gaumErrors.ErrNoRows {
 		return err
 	}
 	return errors.Wrap(err, "running a raw query from within a chain")

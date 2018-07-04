@@ -12,9 +12,9 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package chain
+package errors
 
-import "errors"
+import pkgErrors "github.com/pkg/errors"
 
 // ErrNoRows should be returned when a query that is supposed to yield results does not.
-var ErrNoRows = errors.New("no rows in result set")
+var ErrNoRows = pkgErrors.New("no rows in result set")
