@@ -16,8 +16,13 @@ package chain
 
 import "fmt"
 
-// NullValue represents the NULL value in SQL
-const NullValue = "NULL"
+const (
+	// NullValue represents the NULL value in SQL
+	NullValue = "NULL"
+	// CurrentTimestampPGFn is the name of the function of postgres that returns current
+	// timestamp with tz.
+	CurrentTimestampPGFn = "CURRENT_TIMESTAMP"
+)
 
 // Constraint wraps the passed constraint name with the required SQL to use it.
 func Constraint(constraint string) string {
@@ -96,5 +101,5 @@ func Null(field string) string {
 // SetToCurrentTimestamp crafts a postgres SQL assignement of the field to the current timestamp
 // with timezone.
 func SetToCurrentTimestamp(field string) string {
-	return fmt.Sprintf("%s = CURRENT_TIMESTAMP", field)
+	return fmt.Sprintf("%s = %s", field, CurrentTimestampPGFn)
 }
