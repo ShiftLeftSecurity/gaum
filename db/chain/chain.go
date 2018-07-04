@@ -311,6 +311,25 @@ func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionCha
 	return ec
 }
 
+// UpdateMap set fields/values for updates but does so from a map of key/value.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) UpdateMap(exprMap map[string]interface{}) *ExpresionChain {
+	exprParts := []string{}
+	args := []interface{}{}
+	for k, v := range exprMap {
+		exprParts = append(exprParts, fmt.Sprintf("%s = ?", k))
+		args = append(args, v)
+	}
+	expr := strings.Join(exprParts, ", ")
+	ec.mainOperation = &querySegmentAtom{
+		segment:   sqlUpdate,
+		expresion: expr,
+		arguments: args,
+		sqlBool:   SQLNothing,
+	}
+	return ec
+}
+
 // Table sets the table to be used in the 'FROM' expresion.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) Table(table string) *ExpresionChain {
