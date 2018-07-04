@@ -16,7 +16,7 @@ package chain
 
 import (
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	gaumErrors "github.com/ShiftleftSecurity/gaum/db/errors"
+	gaumErrors "github.com/ShiftLeftSecurity/gaum/db/errors"
 	"github.com/pkg/errors"
 )
 
