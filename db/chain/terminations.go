@@ -48,6 +48,26 @@ func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
 	return ec.db.Query(q, ec.mainOperation.fields(), args...)
 }
 
+// QueryPrimitive is a convenience function to run the current chain through the db query.
+func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
+	if ec.mainOperation.segment != sqlSelect {
+		return func(interface{}) error { return nil },
+			errors.Errorf("cannot invoke query for primitives with statements other than SELECT, please use Exec")
+	}
+	q, args, err := ec.Render()
+	if err != nil {
+		return func(interface{}) error { return nil },
+			errors.Wrap(err, "rendering query to query")
+	}
+	fields := ec.mainOperation.fields()
+	if len(fields) != 1 {
+		return func(interface{}) error { return nil },
+			errors.Errorf("querying for primitives can be done for 1 column only, got %d",
+				len(fields))
+	}
+	return ec.db.QueryPrimitive(q, fields[0], args...)
+}
+
 // Exec executes the chain, works for Insert and Update
 func (ec *ExpresionChain) Exec() (execError error) {
 	var q string

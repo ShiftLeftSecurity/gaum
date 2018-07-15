@@ -47,7 +47,7 @@ func newDB(t *testing.T) connection.DB {
 	db, err := connector.Open(
 		&connection.Information{
 			Host:             "127.0.0.1",
-			Port:             5432,
+			Port:             5469,
 			Database:         "postgres",
 			User:             "postgres",
 			Password:         "mysecretpassword",
@@ -63,23 +63,6 @@ func newDB(t *testing.T) connection.DB {
 }
 
 func TestConnector_QueryIter(t *testing.T) {
-	// Requirements for now
-	/*
-		docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=mysecretpassword -d postgres
-
-		CREATE TABLE justforfun (id int, description text, CONSTRAINT therecanbeonlyone UNIQUE (id));
-		INSERT INTO justforfun (id, description) VALUES (1, 'first');
-		INSERT INTO justforfun (id, description) VALUES (2, 'second');
-		INSERT INTO justforfun (id, description) VALUES (3, 'third');
-		INSERT INTO justforfun (id, description) VALUES (4, 'fourth');
-		INSERT INTO justforfun (id, description) VALUES (5, 'fift');
-		INSERT INTO justforfun (id, description) VALUES (6, 'sixt');
-		INSERT INTO justforfun (id, description) VALUES (7, 'seventh');
-		INSERT INTO justforfun (id, description) VALUES (8, 'eight');
-		INSERT INTO justforfun (id, description) VALUES (9, 'ninth');
-		INSERT INTO justforfun (id, description) VALUES (10, 'tenth');
-	*/
-
 	db := newDB(t)
 	query := chain.NewExpresionChain(db)
 	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
@@ -562,4 +545,47 @@ func TestConnector_Transaction(t *testing.T) {
 		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription)
 		t.FailNow()
 	}
+}
+
+func TestConnector_QueryPrimitives(t *testing.T) {
+
+	db := newDB(t)
+
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	query.Select("id").Table("justforfun").OrderBy("id")
+	fetcher, err := query.QueryPrimitive()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	// Debug print query
+	q, args, err := query.Render()
+	if err != nil {
+		t.Errorf("failed to render: %v", err)
+	}
+	t.Logf("will perform query %q", q)
+	t.Logf("with arguments %#v", args)
+
+	var multiRow []int
+	err = fetcher(&multiRow)
+	if err != nil {
+		t.Errorf("failed to fetch data: %v", err)
+	}
+
+	if len(multiRow) != 10 {
+		t.Logf("expected 10 results got %d", len(multiRow))
+		t.FailNow()
+	}
+	for i := 1; i < 11; i++ {
+		t.Logf("Iteration %d", i)
+		oneRowMulti := multiRow[i-1]
+
+		if oneRowMulti != i {
+			t.Logf("row Id is %d expected 1", oneRowMulti)
+			t.FailNow()
+		}
+
+	}
+
 }

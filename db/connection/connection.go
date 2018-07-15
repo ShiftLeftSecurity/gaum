@@ -64,6 +64,9 @@ type DB interface {
 	QueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
 	// Query returns a closure that allows fetching of the results of the query.
 	Query(statement string, fields []string, args ...interface{}) (ResultFetch, error)
+	// QueryPrimitives returns a closure that allows fetching of the results of a query to a
+	// slice of primitives.
+	QueryPrimitive(statement string, field string, args ...interface{}) (ResultFetch, error)
 	// Raw ins intended to be an all raw query that runs statement with args and tries
 	// to retrieve the results into fields without much magic whatsoever.
 	Raw(statement string, args []interface{}, fields ...interface{}) error

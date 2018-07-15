@@ -149,11 +149,17 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 	var rows *pgx.Rows
 	var err error
 	d.logger.Debug(fmt.Sprintf("will use fields: %#v", fields))
+	var connQ func(string, ...interface{}) (*pgx.Rows, error)
 	if d.conn != nil {
-		rows, err = d.conn.Query(statement, args...)
+		connQ = d.conn.Query
 	} else {
+		connQ = d.tx.Query
 		// yes, this is a leap of fait that one is set
-		rows, err = d.tx.Query(statement, args...)
+	}
+	if len(args) != 0 {
+		rows, err = connQ(statement, args...)
+	} else {
+		rows, err = connQ(statement)
 	}
 	if err != nil {
 		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
@@ -198,16 +204,76 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 	}, nil
 }
 
+// QueryPrimitive returns a function that allowss recovering the results of the query but to a slice
+// of a primitive type, only allowed if the query fetches one field.
+func (d *DB) QueryPrimitive(statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
+	var rows *pgx.Rows
+	var err error
+	var connQ func(string, ...interface{}) (*pgx.Rows, error)
+	if d.conn != nil {
+		connQ = d.conn.Query
+	} else {
+		connQ = d.tx.Query
+		// yes, this is a leap of fait that one is set
+	}
+	if len(args) != 0 {
+		rows, err = connQ(statement, args...)
+	} else {
+		rows, err = connQ(statement)
+	}
+	if err != nil {
+		return func(interface{}) error { return nil },
+			errors.Wrap(err, "querying database")
+	}
+	return func(destination interface{}) error {
+		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
+			return errors.Errorf("the passed receiver is not a pointer, connection is still open")
+		}
+		// TODO add a timer that closes rows if nothing is done.
+		defer rows.Close()
+		var err error
+		reflect.ValueOf(destination).Elem().Set(reflect.MakeSlice(reflect.TypeOf(destination).Elem(), 0, 0))
+
+		// Obtain the actual slice
+		destinationSlice := reflect.ValueOf(destination).Elem()
+
+		// If this is not Ptr->Slice->Type it would have failed already.
+		tod := reflect.TypeOf(destination).Elem().Elem()
+
+		for rows.Next() {
+			// Get a New ptr to the object of the type of the slice.
+			newElemPtr := reflect.New(tod)
+
+			// Try to fetch the data
+			err = rows.Scan(newElemPtr.Interface())
+			if err != nil {
+				defer rows.Close()
+				return errors.Wrap(err, "scanning values into recipient, connection was closed")
+			}
+			// Add to the passed slice, this will actually add to an already populated slice if one
+			// passed, how cool is that?
+			destinationSlice.Set(reflect.Append(destinationSlice, newElemPtr.Elem()))
+		}
+		return nil
+	}, nil
+}
+
 // Query returns a function that allows recovering the results of the query, beware the connection
 // is held until the returned closusure is invoked.
 func (d *DB) Query(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
 	var rows *pgx.Rows
 	var err error
+	var connQ func(string, ...interface{}) (*pgx.Rows, error)
 	if d.conn != nil {
-		rows, err = d.conn.Query(statement, args...)
+		connQ = d.conn.Query
 	} else {
+		connQ = d.tx.Query
 		// yes, this is a leap of fait that one is set
-		rows, err = d.tx.Query(statement, args...)
+	}
+	if len(args) != 0 {
+		rows, err = connQ(statement, args...)
+	} else {
+		rows, err = connQ(statement)
 	}
 	if err != nil {
 		return func(interface{}) error { return nil },
