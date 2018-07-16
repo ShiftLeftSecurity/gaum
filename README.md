@@ -82,6 +82,15 @@ Query will return a closure, similar to `QueryIter` but it will take a slice onl
 
 **Note**: this WILL hold a connection from the pool until you either invoke `close()` function returned or run the closure, a timer option is planned but don't hold your breath.
 
+
+### DB.[QueryPrimitive](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.QueryPrimitive)
+
+See [EscapeArgs](#escapeargs)
+
+QueryPrimitive will return a closure, similar to `Query` but it will take a slice of primitives, for this the select statement must contain only one field specified or the query will fail before even executing. The rest of the behavior is the same.
+
+**Note**: this WILL hold a connection from the pool until you either invoke `close()` function returned or run the closure, a timer option is planned but don't hold your breath.
+
 ### DB.[Raw](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.Raw)
 
 See [EscapeArgs](#escapeargs)
