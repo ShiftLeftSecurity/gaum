@@ -39,17 +39,21 @@ const (
 type sqlSegment string
 
 const (
-	sqlWhere  sqlSegment = "WHERE"
-	sqlLimit  sqlSegment = "LIMIT"
-	sqlOffset sqlSegment = "OFFSET"
-	sqlJoin   sqlSegment = "JOIN"
-	sqlSelect sqlSegment = "SELECT"
-	sqlDelete sqlSegment = "DELETE"
-	sqlInsert sqlSegment = "INSERT"
-	sqlUpdate sqlSegment = "UPDATE"
-	sqlFrom   sqlSegment = "FROM"
-	sqlGroup  sqlSegment = "GROUP BY"
-	sqlOrder  sqlSegment = "ORDER BY"
+	sqlWhere     sqlSegment = "WHERE"
+	sqlLimit     sqlSegment = "LIMIT"
+	sqlOffset    sqlSegment = "OFFSET"
+	sqlJoin      sqlSegment = "JOIN"
+	sqlLeftJoin  sqlSegment = "LEFT JOIN"
+	sqlRightJoin sqlSegment = "RIGHT JOIN"
+	sqlInnerJoin sqlSegment = "INNER JOIN"
+	sqlOuterJoin sqlSegment = "OUTER JOIN"
+	sqlSelect    sqlSegment = "SELECT"
+	sqlDelete    sqlSegment = "DELETE"
+	sqlInsert    sqlSegment = "INSERT"
+	sqlUpdate    sqlSegment = "UPDATE"
+	sqlFrom      sqlSegment = "FROM"
+	sqlGroup     sqlSegment = "GROUP BY"
+	sqlOrder     sqlSegment = "ORDER BY"
 	// SPECIAL CASES
 	sqlInsertMulti sqlSegment = "INSERTM"
 )

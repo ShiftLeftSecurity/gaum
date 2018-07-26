@@ -103,3 +103,10 @@ func Null(field string) string {
 func SetToCurrentTimestamp(field string) string {
 	return fmt.Sprintf("%s = %s", field, CurrentTimestampPGFn)
 }
+
+// JOIN helpers
+
+// JoinOn crafts the `table ON expression`
+func JoinOn(table, expr string, args ...interface{}) (string, []interface{}) {
+	return fmt.Sprintf("%s ON %s", table, expr), args
+}

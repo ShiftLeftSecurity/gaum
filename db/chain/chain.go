@@ -379,6 +379,62 @@ func (ec *ExpresionChain) Join(expr string, args ...interface{}) *ExpresionChain
 	return ec
 }
 
+// LeftJoin adds a 'LEFT JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) LeftJoin(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlLeftJoin,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLNothing,
+		})
+	return ec
+}
+
+// RightJoin adds a 'RIGHT JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) RightJoin(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlRightJoin,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLNothing,
+		})
+	return ec
+}
+
+// InnerJoin adds a 'INNER JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) InnerJoin(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlInnerJoin,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLNothing,
+		})
+	return ec
+}
+
+// OuterJoin adds a 'OUTER JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) OuterJoin(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlOuterJoin,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLNothing,
+		})
+	return ec
+}
+
 // OrderBy adds a 'ORDER BY' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
@@ -640,16 +696,18 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		ec.mainOperation.segment == sqlUpdate {
 		// JOIN
 		joins := extract(ec, sqlJoin)
+		joins = append(joins, extract(ec, sqlLeftJoin)...)
+		joins = append(joins, extract(ec, sqlRightJoin)...)
+		joins = append(joins, extract(ec, sqlInnerJoin)...)
+		joins = append(joins, extract(ec, sqlOuterJoin)...)
 		if len(joins) != 0 {
-			joinSubQueries := make([]string, len(joins))
-			joinArguments := []interface{}{}
-			for i, item := range joins {
-				joinSubQueries[i] = item.expresion
-				joinArguments = append(joinArguments, item.arguments...)
+			for _, join := range joins {
+
+				query += fmt.Sprintf(" %s %s",
+					join.segment,
+					join.expresion)
+				args = append(args, join.arguments...)
 			}
-			query += fmt.Sprintf(" JOIN %s",
-				strings.Join(joinSubQueries, " "))
-			args = append(args, joinArguments...)
 		}
 	}
 
