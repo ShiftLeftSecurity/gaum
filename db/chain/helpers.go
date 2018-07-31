@@ -52,33 +52,33 @@ func As(field, alias string) string {
 }
 
 // Equals is a convenience function to enable use of go for where definitions
-func Equals(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s = ?", field), value
+func Equals(field string) string {
+	return fmt.Sprintf("%s = ?", field)
 }
 
 // NotEquals is a convenience function to enable use of go for where definitions
-func NotEquals(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s != ?", field), value
+func NotEquals(field string) string {
+	return fmt.Sprintf("%s != ?", field)
 }
 
 // GreaterThan is a convenience function to enable use of go for where definitions
-func GreaterThan(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s > ?", field), value
+func GreaterThan(field string) string {
+	return fmt.Sprintf("%s > ?", field)
 }
 
 // GreaterOrEqualThan is a convenience function to enable use of go for where definitions
-func GreaterOrEqualThan(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s >= ?", field), value
+func GreaterOrEqualThan(field string) string {
+	return fmt.Sprintf("%s >= ?", field)
 }
 
 // LesserThan is a convenience function to enable use of go for where definitions
-func LesserThan(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s < ?", field), value
+func LesserThan(field string) string {
+	return fmt.Sprintf("%s < ?", field)
 }
 
 // LesserOrEqualThan is a convenience function to enable use of go for where definitions
-func LesserOrEqualThan(field string, value ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s <= ?", field), value
+func LesserOrEqualThan(field string) string {
+	return fmt.Sprintf("%s <= ?", field)
 }
 
 // In is a convenience function to enable use of go for where definitions
@@ -102,11 +102,4 @@ func Null(field string) string {
 // with timezone.
 func SetToCurrentTimestamp(field string) string {
 	return fmt.Sprintf("%s = %s", field, CurrentTimestampPGFn)
-}
-
-// JOIN helpers
-
-// JoinOn crafts the `table ON expression`
-func JoinOn(table, expr string, args ...interface{}) (string, []interface{}) {
-	return fmt.Sprintf("%s ON %s", table, expr), args
 }

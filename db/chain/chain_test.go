@@ -62,9 +62,9 @@ func TestExpresionChain_Render(t *testing.T) {
 			name: "basic selection with where and helpers",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
-				AndWhere(GreaterThan("field1", 1)).
-				AndWhere(Equals("field2", 2)).
-				AndWhere(GreaterThan("field3", "pajarito")).
+				AndWhere(GreaterThan("field1"), 1).
+				AndWhere(Equals("field2"), 2).
+				AndWhere(GreaterThan("field3"), "pajarito").
 				OrWhere(In("field3", "pajarito", "gatito", "perrito")).
 				AndWhere(Null("field4")).
 				AndWhere(NotNull("field5")),
@@ -101,7 +101,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -113,7 +113,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "DELETE  FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -150,7 +150,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				OrderBy("field2, field3").
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 ORDER BY field2, field3",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -162,12 +162,12 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join(JoinOn("another_convenient_table", "pirulo = ?", "unpirulo")).
-				Join(JoinOn("yet_another_convenient_table", "pirulo = ?", "otrounpirulo")).
-				LeftJoin(JoinOn("one_convenient_table", "pirulo2 = ?", "dospirulo")).
-				RightJoin(JoinOn("three_convenient_table", "pirulo3 = ?", "trespirulo")).
-				InnerJoin(JoinOn("four_convenient_table", "pirulo4 = ?", "cuatropirulo")).
-				OuterJoin(JoinOn("five_convenient_table", "pirulo5 = ?", "cincopirulo")),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo").
+				Join("yet_another_convenient_table", "pirulo = ?", "otrounpirulo").
+				LeftJoin("one_convenient_table", "pirulo2 = ?", "dospirulo").
+				RightJoin("three_convenient_table", "pirulo3 = ?", "trespirulo").
+				InnerJoin("four_convenient_table", "pirulo4 = ?", "cuatropirulo").
+				OuterJoin("five_convenient_table", "pirulo5 = ?", "cincopirulo"),
 			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 JOIN yet_another_convenient_table ON pirulo = $2 LEFT JOIN one_convenient_table ON pirulo2 = $3 RIGHT JOIN three_convenient_table ON pirulo3 = $4 INNER JOIN four_convenient_table ON pirulo4 = $5 OUTER JOIN five_convenient_table ON pirulo5 = $6 WHERE field1 > $7 AND field2 = $8 AND field3 > $9",
 			wantArgs: []interface{}{"unpirulo", "otrounpirulo", "dospirulo", "trespirulo", "cuatropirulo", "cincopirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -180,7 +180,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				GroupBy("field2, field3").
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 GROUP BY field2, field3",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -195,7 +195,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				GroupBy("field2, field3").
 				Limit(100).
 				Offset(10).
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 GROUP BY field2, field3 LIMIT 100 OFFSET 10",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -207,7 +207,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
 			wantArgs: []interface{}{"value2", 9, "unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
@@ -219,9 +219,52 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table ON pirulo = ?", "unpirulo"),
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
 			wantArgs: []interface{}{"value2", 9, "unpirulo", 1, 2, "pajarito"},
+			wantErr:  false,
+		},
+		{
+			name: "heavy query",
+			chain: (&ExpresionChain{}).Table("table1").
+				Select("table1.field1",
+					"table1.field2",
+					"table1.field3",
+					"table1.field4",
+					"table1.field5",
+					"table1.field6",
+					"table1.field7",
+					"table1.field8",
+					"table1.field9",
+					"table1.field10",
+					"table1.field11",
+					"table1.field12",
+					"table1.field13",
+					"table1.field14",
+					As("sum(table2.field0)", "things")).
+				LeftJoin("table2",
+					`table2.field1 = table1.field1 AND 
+					table2.field2 = table1.field2 AND
+					table2.field3 = table1.field3`).
+				AndWhere(In("field10", "oneproject", "twoproject")).
+				AndWhere("table1.field14 = ?", "orgidasdasasds").
+				AndWhere("table2.field8 = false").
+				GroupBy(`table1.field1,
+				table1.field2,
+				table1.field3,
+				table1.field4,
+				table1.field5,
+				table1.field6,
+				table1.field7,
+				table1.field8,
+				table1.field9,
+				table1.field10,
+				table1.field11,
+				table1.field12,
+				table1.field13,
+				table1.field14`),
+			want:     "SELECT table1.field1, table1.field2, table1.field3, table1.field4, table1.field5, table1.field6, table1.field7, table1.field8, table1.field9, table1.field10, table1.field11, table1.field12, table1.field13, table1.field14, sum(table2.field0) AS things FROM table1 LEFT JOIN table2 ON table2.field1 = table1.field1 AND \n\t\t\t\t\ttable2.field2 = table1.field2 AND\n\t\t\t\t\ttable2.field3 = table1.field3 WHERE field10 IN ($1, $2) AND table1.field14 = $3 AND table2.field8 = false GROUP BY table1.field1,\n\t\t\t\ttable1.field2,\n\t\t\t\ttable1.field3,\n\t\t\t\ttable1.field4,\n\t\t\t\ttable1.field5,\n\t\t\t\ttable1.field6,\n\t\t\t\ttable1.field7,\n\t\t\t\ttable1.field8,\n\t\t\t\ttable1.field9,\n\t\t\t\ttable1.field10,\n\t\t\t\ttable1.field11,\n\t\t\t\ttable1.field12,\n\t\t\t\ttable1.field13,\n\t\t\t\ttable1.field14",
+			wantArgs: []interface{}{"oneproject", "twoproject", "orgidasdasasds"},
 			wantErr:  false,
 		},
 	}
@@ -234,7 +277,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ExpresionChain.Render() got = %q, want %q", got, tt.want)
+				t.Errorf("ExpresionChain.Render() \ngot = %q, \nwant %q", got, tt.want)
 			}
 			if !reflect.DeepEqual(got1, tt.wantArgs) {
 				t.Errorf("ExpresionChain.Render() got1 = %v, want %v", got1, tt.wantArgs)

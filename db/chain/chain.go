@@ -368,7 +368,8 @@ func (ec *ExpresionChain) Offset(offset int64) *ExpresionChain {
 // Join adds a 'JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) Join(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) Join(expr, on string, args ...interface{}) *ExpresionChain {
+	expr = fmt.Sprintf("%s ON %s", expr, on)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlJoin,
@@ -382,7 +383,8 @@ func (ec *ExpresionChain) Join(expr string, args ...interface{}) *ExpresionChain
 // LeftJoin adds a 'LEFT JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) LeftJoin(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) LeftJoin(expr, on string, args ...interface{}) *ExpresionChain {
+	expr = fmt.Sprintf("%s ON %s", expr, on)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlLeftJoin,
@@ -396,7 +398,8 @@ func (ec *ExpresionChain) LeftJoin(expr string, args ...interface{}) *ExpresionC
 // RightJoin adds a 'RIGHT JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) RightJoin(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) RightJoin(expr, on string, args ...interface{}) *ExpresionChain {
+	expr = fmt.Sprintf("%s ON %s", expr, on)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlRightJoin,
@@ -410,7 +413,8 @@ func (ec *ExpresionChain) RightJoin(expr string, args ...interface{}) *Expresion
 // InnerJoin adds a 'INNER JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) InnerJoin(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) InnerJoin(expr, on string, args ...interface{}) *ExpresionChain {
+	expr = fmt.Sprintf("%s ON %s", expr, on)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlInnerJoin,
@@ -424,7 +428,8 @@ func (ec *ExpresionChain) InnerJoin(expr string, args ...interface{}) *Expresion
 // OuterJoin adds a 'OUTER JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) OuterJoin(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) OuterJoin(expr, on string, args ...interface{}) *ExpresionChain {
+	expr = fmt.Sprintf("%s ON %s", expr, on)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlOuterJoin,
@@ -672,6 +677,7 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		query = fmt.Sprintf("UPDATE %s SET %s",
 			ec.table, ec.mainOperation.expresion)
 		args = append(args, ec.mainOperation.arguments...)
+
 	// SELECT, DELETE
 	case sqlSelect, sqlDelete:
 		expresion := ec.mainOperation.expresion
@@ -713,7 +719,7 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 
 	// WHERE
 	wheres, whereArgs := ec.renderWhereRaw()
-	if len(whereArgs) != 0 {
+	if wheres != "" {
 		query += " WHERE" + wheres
 		args = append(args, whereArgs...)
 	}
@@ -725,8 +731,10 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		groupCriteria := []string{}
 		for _, item := range groups {
 			expr := item.expresion
-			arguments := item.arguments
-			args = append(args, arguments...)
+			if len(item.arguments) != 0 {
+				arguments := item.arguments
+				args = append(args, arguments...)
+			}
 			groupCriteria = append(groupCriteria, expr)
 		}
 		query += groupByStatement
