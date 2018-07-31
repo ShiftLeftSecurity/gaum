@@ -359,17 +359,17 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 		ctx, cancel := context.WithTimeout(context.TODO(), *d.execTimeout)
 		defer cancel()
 		if d.tx != nil {
-			rows = d.tx.QueryRowEx(ctx, statement, nil, args)
+			rows = d.tx.QueryRowEx(ctx, statement, nil, args...)
 		} else if d.conn != nil {
-			rows = d.conn.QueryRowEx(ctx, statement, nil, args)
+			rows = d.conn.QueryRowEx(ctx, statement, nil, args...)
 		} else {
 			return gaumErrors.NoDB
 		}
 	} else {
 		if d.tx != nil {
-			rows = d.tx.QueryRow(statement, args)
+			rows = d.tx.QueryRow(statement, args...)
 		} else if d.conn != nil {
-			rows = d.conn.QueryRow(statement, args)
+			rows = d.conn.QueryRow(statement, args...)
 		} else {
 			return gaumErrors.NoDB
 		}
