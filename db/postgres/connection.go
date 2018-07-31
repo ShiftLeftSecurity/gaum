@@ -15,12 +15,14 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	gaumErrors "github.com/ShiftLeftSecurity/gaum/db/errors"
 	"github.com/ShiftLeftSecurity/gaum/db/logging"
@@ -100,16 +102,18 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 		return nil, errors.Wrap(err, "connecting to postgres database")
 	}
 	return &DB{
-		conn:   conn,
-		logger: conLogger,
+		conn:        conn,
+		logger:      conLogger,
+		execTimeout: ci.QueryExecTimeout,
 	}, nil
 }
 
 // DB wraps pgx.Conn into a struct that implements connection.DB
 type DB struct {
-	conn   *pgx.ConnPool
-	tx     *pgx.Tx
-	logger logging.Logger
+	conn        *pgx.ConnPool
+	tx          *pgx.Tx
+	logger      logging.Logger
+	execTimeout *time.Duration
 }
 
 // Clone returns a copy of DB with the same underlying Connection
@@ -264,11 +268,12 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 	var rows *pgx.Rows
 	var err error
 	var connQ func(string, ...interface{}) (*pgx.Rows, error)
-	if d.conn != nil {
+	if d.tx != nil {
+		connQ = d.tx.Query
+	} else if d.conn != nil {
 		connQ = d.conn.Query
 	} else {
-		connQ = d.tx.Query
-		// yes, this is a leap of fait that one is set
+		return nil, errors.New("cannot query without a database connection")
 	}
 	if len(args) != 0 {
 		rows, err = connQ(statement, args...)
@@ -345,11 +350,25 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 // to the passed fields.
 func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) error {
 	var rows *pgx.Row
-	if d.conn != nil {
-		rows = d.conn.QueryRow(statement, args...)
+
+	if d.execTimeout != nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), *d.execTimeout)
+		defer cancel()
+		if d.tx != nil {
+			rows = d.tx.QueryRowEx(ctx, statement, nil, args)
+		} else if d.conn != nil {
+			rows = d.conn.QueryRowEx(ctx, statement, nil, args)
+		} else {
+			return errors.New("cannot query without a database connection or transaction")
+		}
 	} else {
-		// yes, this is a leap of fait that one is set
-		rows = d.tx.QueryRow(statement, args...)
+		if d.tx != nil {
+			rows = d.tx.QueryRow(statement, args)
+		} else if d.conn != nil {
+			rows = d.conn.QueryRow(statement, args)
+		} else {
+			return errors.New("cannot query without a database connection or transaction")
+		}
 	}
 
 	// Try to fetch the data
@@ -367,11 +386,25 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 func (d *DB) Exec(statement string, args ...interface{}) error {
 	var connTag pgx.CommandTag
 	var err error
-	if d.conn != nil {
-		connTag, err = d.conn.Exec(statement, args...)
+
+	if d.execTimeout != nil {
+		ctx, cancel := context.WithTimeout(context.TODO(), *d.execTimeout)
+		defer cancel()
+		if d.tx != nil {
+			connTag, err = d.tx.ExecEx(ctx, statement, nil, args...)
+		} else if d.conn != nil {
+			connTag, err = d.conn.ExecEx(ctx, statement, nil, args...)
+		} else {
+			return errors.New("cannot query database without a connection")
+		}
 	} else {
-		// yes, this is a leap of fait that one is set
-		connTag, err = d.tx.Exec(statement, args...)
+		if d.tx != nil {
+			connTag, err = d.tx.Exec(statement, args...)
+		} else if d.conn != nil {
+			connTag, err = d.conn.Exec(statement, args...)
+		} else {
+			return errors.New("cannot query database without a connection")
+		}
 	}
 	if err != nil {
 		return errors.Wrapf(err, "querying database, obtained %s", connTag)
@@ -383,7 +416,7 @@ func (d *DB) Exec(statement string, args ...interface{}) error {
 // if the transaction is already started the same will be returned.
 func (d *DB) BeginTransaction() (connection.DB, error) {
 	if d.tx != nil {
-		return d, nil
+		return nil, errors.New("transaction already exists")
 	}
 	tx, err := d.conn.Begin()
 	if err != nil {
@@ -404,7 +437,7 @@ func (d *DB) IsTransaction() bool {
 // pgx.
 func (d *DB) CommitTransaction() error {
 	if d.tx == nil {
-		return nil
+		return errors.New("cannot commit a transaction that does not exist")
 	}
 
 	return d.tx.Commit()
@@ -414,7 +447,7 @@ func (d *DB) CommitTransaction() error {
 // pgx.
 func (d *DB) RollbackTransaction() error {
 	if d.tx == nil {
-		return nil
+		return errors.New("cannot commit a transaction that does not exist")
 	}
 	return d.tx.Rollback()
 }
@@ -423,7 +456,7 @@ func (d *DB) RollbackTransaction() error {
 // https://www.postgresql.org/docs/9.2/static/sql-set.html
 func (d *DB) Set(set string) error {
 	if d.tx == nil {
-		return nil
+		return errors.New("cannot set a local variable in an ongoing transaction without a transaction")
 	}
 	// TODO check if this will work in the `SET LOCAL $1` arg format
 	cTag, err := d.tx.Exec("SET LOCAL " + set)
