@@ -18,3 +18,12 @@ import pkgErrors "github.com/pkg/errors"
 
 // ErrNoRows should be returned when a query that is supposed to yield results does not.
 var ErrNoRows = pkgErrors.New("no rows in result set")
+
+// NoTX is encountered when an operation is done that assumes a transaction exists, but isn't present
+var NoTX = pkgErrors.New("transaction does not exist")
+
+// NoDB is encountered when an operation is preformed without a valid transaction or connection to the DB
+var NoDB = pkgErrors.New("neither transaction or database connection exists")
+
+// AlreadyInTX is encountered when one attempts to start a transaction within a transaction, recursive transactions are not supported at this time.
+var AlreadyInTX = pkgErrors.New("cannot begin a transaction within a transaction")
