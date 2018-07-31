@@ -154,12 +154,14 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 	var err error
 	d.logger.Debug(fmt.Sprintf("will use fields: %#v", fields))
 	var connQ func(string, ...interface{}) (*pgx.Rows, error)
-	if d.conn != nil {
+	if d.tx != nil {
+		connQ = d.tx.Query
+	} else if d.conn != nil {
 		connQ = d.conn.Query
 	} else {
-		connQ = d.tx.Query
-		// yes, this is a leap of fait that one is set
+		return nil, gaumErrors.NoDB
 	}
+
 	if len(args) != 0 {
 		rows, err = connQ(statement, args...)
 	} else {
@@ -214,12 +216,14 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 	var rows *pgx.Rows
 	var err error
 	var connQ func(string, ...interface{}) (*pgx.Rows, error)
-	if d.conn != nil {
+	if d.tx != nil {
+		connQ = d.tx.Query
+	} else if d.conn != nil {
 		connQ = d.conn.Query
 	} else {
-		connQ = d.tx.Query
-		// yes, this is a leap of fait that one is set
+		return nil, gaumErrors.NoDB
 	}
+
 	if len(args) != 0 {
 		rows, err = connQ(statement, args...)
 	} else {
@@ -273,7 +277,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 	} else if d.conn != nil {
 		connQ = d.conn.Query
 	} else {
-		return nil, errors.New("cannot query without a database connection")
+		return nil, gaumErrors.NoDB
 	}
 	if len(args) != 0 {
 		rows, err = connQ(statement, args...)
@@ -359,7 +363,7 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 		} else if d.conn != nil {
 			rows = d.conn.QueryRowEx(ctx, statement, nil, args)
 		} else {
-			return errors.New("cannot query without a database connection or transaction")
+			return gaumErrors.NoDB
 		}
 	} else {
 		if d.tx != nil {
@@ -367,7 +371,7 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 		} else if d.conn != nil {
 			rows = d.conn.QueryRow(statement, args)
 		} else {
-			return errors.New("cannot query without a database connection or transaction")
+			return gaumErrors.NoDB
 		}
 	}
 
@@ -395,7 +399,7 @@ func (d *DB) Exec(statement string, args ...interface{}) error {
 		} else if d.conn != nil {
 			connTag, err = d.conn.ExecEx(ctx, statement, nil, args...)
 		} else {
-			return errors.New("cannot query database without a connection")
+			return gaumErrors.NoDB
 		}
 	} else {
 		if d.tx != nil {
@@ -403,7 +407,7 @@ func (d *DB) Exec(statement string, args ...interface{}) error {
 		} else if d.conn != nil {
 			connTag, err = d.conn.Exec(statement, args...)
 		} else {
-			return errors.New("cannot query database without a connection")
+			return gaumErrors.NoDB
 		}
 	}
 	if err != nil {
@@ -416,7 +420,7 @@ func (d *DB) Exec(statement string, args ...interface{}) error {
 // if the transaction is already started the same will be returned.
 func (d *DB) BeginTransaction() (connection.DB, error) {
 	if d.tx != nil {
-		return nil, errors.New("transaction already exists")
+		return nil, gaumErrors.AlreadyInTX
 	}
 	tx, err := d.conn.Begin()
 	if err != nil {
@@ -437,7 +441,7 @@ func (d *DB) IsTransaction() bool {
 // pgx.
 func (d *DB) CommitTransaction() error {
 	if d.tx == nil {
-		return errors.New("cannot commit a transaction that does not exist")
+		return gaumErrors.NoTX
 	}
 
 	return d.tx.Commit()
@@ -447,7 +451,7 @@ func (d *DB) CommitTransaction() error {
 // pgx.
 func (d *DB) RollbackTransaction() error {
 	if d.tx == nil {
-		return errors.New("cannot commit a transaction that does not exist")
+		return gaumErrors.NoTX
 	}
 	return d.tx.Rollback()
 }
@@ -456,7 +460,7 @@ func (d *DB) RollbackTransaction() error {
 // https://www.postgresql.org/docs/9.2/static/sql-set.html
 func (d *DB) Set(set string) error {
 	if d.tx == nil {
-		return errors.New("cannot set a local variable in an ongoing transaction without a transaction")
+		return gaumErrors.NoTX
 	}
 	// TODO check if this will work in the `SET LOCAL $1` arg format
 	cTag, err := d.tx.Exec("SET LOCAL " + set)
