@@ -16,6 +16,7 @@ package chain
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -80,16 +81,28 @@ func (q *querySegmentAtom) clone() querySegmentAtom {
 	}
 }
 
+var nonFields = []*regexp.Regexp{
+	regexp.MustCompile(`distinct on \(.+\)`),
+}
+
 func (q *querySegmentAtom) fields() []string {
 	fields := []string{}
 	if q.segment == sqlSelect {
-		rawFields := strings.Split(q.expresion, ",")
+		expr := strings.ToLower(q.expresion)
+		for _, nf := range nonFields {
+			expr = string(nf.ReplaceAll([]byte(expr), []byte{}))
+		}
+		rawFields := strings.Split(expr, ",")
 		for _, field := range rawFields {
 			field = strings.ToLower(field)
 			field := strings.TrimRight(strings.TrimLeft(field, " "), " ")
 			fieldParts := strings.Split(field, " as ")
 			fieldName := fieldParts[len(fieldParts)-1]
 			fieldName = strings.TrimRight(strings.TrimLeft(fieldName, " "), " ")
+			if strings.Index(fieldName, ".") > -1 {
+				fieldParts = strings.Split(fieldName, ".")
+				fieldName = fieldParts[len(fieldParts)-1]
+			}
 			if fieldName == "" {
 				continue
 			}
