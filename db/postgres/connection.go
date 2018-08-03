@@ -66,6 +66,9 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 			},
 			MaxConnections: ci.MaxConnPoolConns,
 		}
+		if ci.CustomDial != nil {
+			config.ConnConfig.Dial = ci.CustomDial
+		}
 	}
 	if c.ConnectionString != "" {
 		csconfig, err := pgx.ParseConnectionString(c.ConnectionString)

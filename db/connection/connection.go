@@ -17,6 +17,7 @@ package connection
 import (
 	"crypto/tls"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/ShiftLeftSecurity/gaum/db/logging"
@@ -36,6 +37,7 @@ type Information struct {
 	TLSConfig         *tls.Config // config for TLS connection -- nil disables TLS
 	UseFallbackTLS    bool        // Try FallbackTLSConfig if connecting with TLSConfig fails. Used for preferring TLS, but allowing unencrypted, or vice-versa
 	FallbackTLSConfig *tls.Config // config for fallback TLS connection (only used if UseFallBackTLS is true)-- nil disables TLS
+	CustomDial        func(network, addr string) (net.Conn, error)
 
 	// MaxConnPoolConns where applies will be used to determine the maximum amount of connections
 	// a pool can have.
