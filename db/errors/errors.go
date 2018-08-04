@@ -27,3 +27,6 @@ var NoDB = pkgErrors.New("neither transaction or database connection exists")
 
 // AlreadyInTX is encountered when one attempts to start a transaction within a transaction, recursive transactions are not supported at this time.
 var AlreadyInTX = pkgErrors.New("cannot begin a transaction within a transaction")
+
+// NotImplemented is returned when a feature not on a driver is invoked
+var NotImplemented = pkgErrors.New("not implemented for this driver")

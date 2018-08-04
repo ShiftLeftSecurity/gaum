@@ -9,7 +9,8 @@
     "internal/sanitize",
     "pgio",
     "pgproto3",
-    "pgtype"
+    "pgtype",
+    "stdlib"
   ]
   revision = "da3231b0b66e2e74cdb779f1d46c5e958ba8be27"
   version = "v3.1.0"
@@ -29,6 +30,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "40868e7b33cd6835ee964d7a37aed887744f6b836ff5c08b8177050ee513a28b"
+  inputs-digest = "724e0f5c61a82838b3b8fd7c8a99b67696e782f0eef5b129b3673ca18c7c47e2"
   solver-name = "gps-cdcl"
   solver-version = 1
