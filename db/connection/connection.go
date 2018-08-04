@@ -33,6 +33,7 @@ type Information struct {
 	User             string
 	Password         string
 	QueryExecTimeout *time.Duration //optionally set the maximum time a query can take to execute
+	ConnMaxLifetime  *time.Duration
 
 	TLSConfig         *tls.Config // config for TLS connection -- nil disables TLS
 	UseFallbackTLS    bool        // Try FallbackTLSConfig if connecting with TLSConfig fails. Used for preferring TLS, but allowing unencrypted, or vice-versa

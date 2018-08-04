@@ -109,6 +109,9 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "connecting to postgres database")
 	}
+	if ci.ConnMaxLifetime != nil {
+		conn.SetConnMaxLifetime(*ci.ConnMaxLifetime)
+	}
 	return &DB{
 		conn:        conn,
 		logger:      conLogger,
