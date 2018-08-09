@@ -180,11 +180,23 @@ func TestSerializeMixed(t *testing.T) {
 			output:  "hello DESC, test ASC",
 		},
 		{
+			orderBy: Desc("hello").Desc("").Asc("test"),
+			output:  "hello DESC, test ASC",
+		},
+		{
 			orderBy: Desc("hello", "").Asc("test"),
 			output:  "hello DESC, test ASC",
 		},
 		{
 			orderBy: Desc("hello").Asc("", "test"),
+			output:  "hello DESC, test ASC",
+		},
+		{
+			orderBy: Desc("hello").Desc().Asc("test"),
+			output:  "hello DESC, test ASC",
+		},
+		{
+			orderBy: Desc("hello").Asc().Asc("test"),
 			output:  "hello DESC, test ASC",
 		},
 	}
