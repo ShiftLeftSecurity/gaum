@@ -14,6 +14,11 @@
 
 package chain
 
+import (
+	"fmt"
+	"strings"
+)
+
 // OrderByOperator unifies the `Asc` and `Desc` functions
 type OrderByOperator struct {
 	others    *OrderByOperator
@@ -26,6 +31,7 @@ func Asc(columns ...string) *OrderByOperator {
 	return &OrderByOperator{
 		direction: false,
 		data:      columns,
+		others:    nil,
 	}
 }
 
@@ -34,35 +40,31 @@ func Desc(columns ...string) *OrderByOperator {
 	return &OrderByOperator{
 		direction: true,
 		data:      columns,
+		others:    nil,
 	}
 }
 
 // Asc allows for complex chained OrderBy clauses
 func (o *OrderByOperator) Asc(columns ...string) *OrderByOperator {
-	// walk singly linked list to update others
-	others := o.others
-	for {
-		if others != nil {
-			others = o.others
-		} else {
-			break
-		}
-	}
-	others.others = Asc(columns...)
+	o.append(Asc(columns...))
+	return o
 }
 
 // Desc allows for complex chained OrderBy clauses
 func (o *OrderByOperator) Desc(columns ...string) *OrderByOperator {
-	// walk singly linked list to update the last item
-	others := o.others
-	for {
-		if others != nil {
-			others = o.others
-		} else {
-			break
-		}
+	o.append(Desc(columns...))
+	return o
+}
+
+// append makes walking the singly linked list a lot easier
+func (o *OrderByOperator) append(arg *OrderByOperator) {
+	if o == nil {
+		o = arg
+	} else if o.others == nil {
+		o.others = arg
+	} else {
+		o.others.append(arg)
 	}
-	others.others = Desc(columns...)
 }
 
 // String converts the operator to a string
@@ -71,31 +73,30 @@ func (o *OrderByOperator) String() string {
 	// guard to simply recursion of walking
 	// the internal linked list
 	if o == nil ||
-		(o != nil && len(o.data) == 0) {
+		(o != nil && len(o.data) == 0 && o.others == nil) {
 		return ""
+	} else if o != nil && len(o.data) == 0 && o.others != nil {
+		// weird condition that may arrise from bad code
+		// we'll handle it b/c we're a nice library
+		return o.others.String()
 	}
 
 	var way string
-	if direction {
+	if o.direction {
 		way = "DESC"
 	} else {
 		way = "ASC"
 	}
 
-	var section string
-	if len(o.data) == 1 {
-		section = fmt.Sprintf("%s %s", o.data[0], way)
-	} else {
-		var fields []string
-		for _, column := range o.data {
-			fields = append(fields, fmt.Sprintf("%s %s", column, way))
-		}
-		section = strings.Join(fields, ", ")
+	var fields []string
+	for _, column := range o.data {
+		fields = append(fields, fmt.Sprintf("%s %s", column, way))
 	}
 
+	// recursively serialize
 	internal := o.others.String()
-	if internal == "" {
-		return section
+	if internal != "" {
+		fields = append(fields, internal)
 	}
-	return strings.Join([]string{section, internal}, ", ")
+	return strings.Join(fields, ", ")
 }

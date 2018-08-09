@@ -149,9 +149,9 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				OrderBy("field2, field3").
+				OrderBy(Asc("field2").Asc("field3")).
 				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 ORDER BY field2, field3",
+			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4 ORDER BY field2 ASC, field3 ASC",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
