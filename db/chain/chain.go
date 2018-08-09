@@ -443,12 +443,12 @@ func (ec *ExpresionChain) OuterJoin(expr, on string, args ...interface{}) *Expre
 // OrderBy adds a 'ORDER BY' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) OrderBy(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) OrderBy(order *OrderByOperator) *ExpresionChain {
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlOrder,
-			expresion: expr,
-			arguments: args,
+			expresion: order.String(),
+			arguments: nil,
 			sqlBool:   SQLNothing,
 		})
 	return ec
