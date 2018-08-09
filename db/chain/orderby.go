@@ -90,6 +90,9 @@ func (o *OrderByOperator) String() string {
 
 	var fields []string
 	for _, column := range o.data {
+		if column == "" {
+			continue
+		}
 		fields = append(fields, fmt.Sprintf("%s %s", column, way))
 	}
 

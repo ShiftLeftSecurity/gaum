@@ -175,6 +175,18 @@ func TestSerializeMixed(t *testing.T) {
 			orderBy: Desc("hello").Asc("world", "test"),
 			output:  "hello DESC, world ASC, test ASC",
 		},
+		{
+			orderBy: Desc("hello").Asc("").Asc("test"),
+			output:  "hello DESC, test ASC",
+		},
+		{
+			orderBy: Desc("hello", "").Asc("test"),
+			output:  "hello DESC, test ASC",
+		},
+		{
+			orderBy: Desc("hello").Asc("", "test"),
+			output:  "hello DESC, test ASC",
+		},
 	}
 
 	for _, aTest := range tests {
