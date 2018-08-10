@@ -301,6 +301,8 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 
 // Update set fields/values for updates.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+//
+// NOTE: values of `nil` will be treated as `NULL`
 func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionChain {
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlUpdate,
@@ -313,6 +315,8 @@ func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionCha
 
 // UpdateMap set fields/values for updates but does so from a map of key/value.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+//
+// NOTE: values of `nil` will be treated as `NULL`
 func (ec *ExpresionChain) UpdateMap(exprMap map[string]interface{}) *ExpresionChain {
 	exprParts := []string{}
 	args := []interface{}{}
@@ -482,8 +486,22 @@ func extract(ec *ExpresionChain, seg sqlSegment) []querySegmentAtom {
 // done with a finished query and requires the args as they depend on the position of the
 // already rendered query, it does some consistency control and finally expands `(?)`.
 func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, error) {
+
+	// assume a nill pointer is a null
+	// this is hacky, but it should work
+	otherArgs := make([]interface{}, len(args))
+	for index, arg := range args {
+		if arg == nil {
+			otherArgs[index] = "NULL"
+		} else {
+			otherArgs[index] = arg
+		}
+	}
+	args = otherArgs
+
 	// TODO: make this a bit less ugly
 	// TODO: identify escaped questionmarks
+	// TODO: use an actual parser <3
 	queryWithArgs := ""
 	argCounter := 1
 	argPositioner := 0
