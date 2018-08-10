@@ -127,6 +127,14 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic insert with nulls",
+			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": nil}).
+				Table("convenient_table"),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3)",
+			wantArgs: []interface{}{"value1", 2, "NULL"},
+			wantErr:  false,
+		},
+		{
 			name: "basic insert with conflict on column",
 			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table").Conflict("id", ConflictActionNothing),
@@ -140,6 +148,14 @@ func TestExpresionChain_Render(t *testing.T) {
 				Table("convenient_table").Conflict(Constraint("id"), ConflictActionNothing),
 			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
 			wantArgs: []interface{}{"value1", 2, "blah"},
+			wantErr:  false,
+		},
+		{
+			name: "basic insert with conflict on constraint with nulls",
+			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": nil, "field3": "blah"}).
+				Table("convenient_table").Conflict(Constraint("id"), ConflictActionNothing),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
+			wantArgs: []interface{}{"value1", "NULL", "blah"},
 			wantErr:  false,
 		},
 		{
