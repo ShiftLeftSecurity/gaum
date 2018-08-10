@@ -497,6 +497,7 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 			otherArgs[index] = arg
 		}
 	}
+	args = otherArgs
 
 	// TODO: make this a bit less ugly
 	// TODO: identify escaped questionmarks

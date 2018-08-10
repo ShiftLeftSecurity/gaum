@@ -213,6 +213,18 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic update with where and join",
+			chain: (&ExpresionChain{}).Update("field1 = ?, field3 = ?", "value2", nil).
+				Table("convenient_table").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				AndWhere("field3 > ?", "pajarito").
+				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
+			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
+			wantArgs: []interface{}{"value2", "NULL", "unpirulo", 1, 2, "pajarito"},
+			wantErr:  false,
+		},
+		{
 			name: "basic update with where and join but using map",
 			chain: (&ExpresionChain{}).UpdateMap(map[string]interface{}{"field1": "value2", "field3": 9}).
 				Table("convenient_table").
