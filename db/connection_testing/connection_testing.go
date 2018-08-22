@@ -114,7 +114,7 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 
 	// Test Multiple row Iterator
 	query = chain.NewExpresionChain(db)
-	query.Select("id, description").Table("justforfun").OrderBy("id")
+	query.Select("id, description").Table("justforfun").OrderBy(chain.Asc("id"))
 	iter, err = query.QueryIter()
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
@@ -178,7 +178,7 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 
 	// Test Multiple row Iterator
 	query := chain.NewExpresionChain(db)
-	query.Select("id, description").Table("justforfun").OrderBy("id")
+	query.Select("id, description").Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
@@ -560,7 +560,7 @@ func testConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
 
 	// Test Multiple row Iterator
 	query := chain.NewExpresionChain(db)
-	query.Select("id").Table("justforfun").OrderBy("id")
+	query.Select("id").Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.QueryPrimitive()
 	if err != nil {
 		t.Errorf("failed to query: %v", err)

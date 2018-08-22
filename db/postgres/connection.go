@@ -50,6 +50,10 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 	var config pgx.ConnPoolConfig
 	var conLogger logging.Logger
 	if ci != nil {
+		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
+		if llevelErr != nil {
+			llevel = pgx.LogLevelError
+		}
 		conLogger = ci.Logger
 		config = pgx.ConnPoolConfig{
 			ConnConfig: pgx.ConnConfig{
@@ -63,6 +67,7 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 				UseFallbackTLS:    ci.UseFallbackTLS,
 				FallbackTLSConfig: ci.FallbackTLSConfig,
 				Logger:            logging.NewPgxLogAdapter(conLogger),
+				LogLevel:          int(llevel),
 			},
 			MaxConnections: ci.MaxConnPoolConns,
 		}

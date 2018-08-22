@@ -24,6 +24,24 @@ import (
 	"github.com/pkg/errors"
 )
 
+// LogLevel is the type for the potential log levels a db can have
+type LogLevel string
+
+var (
+	// Trace sets log level to trace.
+	Trace LogLevel = "trace"
+	// Debug sets log level to debug.
+	Debug LogLevel = "debug"
+	// Info sets log level to info.
+	Info LogLevel = "info"
+	// Warn sets log level to warn.
+	Warn LogLevel = "warn"
+	// Error sets log level to error.
+	Error LogLevel = "error"
+	// None sets log level to none.
+	None LogLevel = "none"
+)
+
 // Information contains all required information to create a connection into a db.
 // Copied almost verbatim from https://godoc.org/github.com/jackc/pgx#ConnConfig
 type Information struct {
@@ -44,7 +62,8 @@ type Information struct {
 	// a pool can have.
 	MaxConnPoolConns int
 
-	Logger logging.Logger
+	Logger   logging.Logger
+	LogLevel LogLevel
 }
 
 // DatabaseHandler represents the boundary with a db.
