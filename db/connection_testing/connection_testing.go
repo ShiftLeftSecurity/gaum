@@ -171,8 +171,11 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 func testConnector_Query(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
+	type InnerRow struct {
+		Id int
+	}
 	type row struct {
-		Id          int
+		InnerRow
 		Description string
 	}
 

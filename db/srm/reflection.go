@@ -146,12 +146,54 @@ func MapFromTypeOf(tod reflect.Type,
 
 	typeName := tod.Name()
 	fieldMap := make(map[string]reflect.StructField, tod.NumField())
+	embeddedFields := []reflect.StructField{}
 	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
 		field := tod.Field(fieldIndex)
+		if field.Anonymous {
+			// If this is an embedded struct we will deal with it later, this gives us the chance
+			// to discover all other fields first and use this to prevent assigning to the embedded
+			// field attribute when there is a non anonymous field shadowing it.
+			embeddedFields = append(embeddedFields, field)
+			continue
+		}
 		name := nameFromTagOrName(field)
 		fieldMap[name] = field
 	}
+	if len(embeddedFields) != 0 {
+		for _, v := range embeddedFields {
+			unwrapEmbedded(fieldMap, &v)
+		}
+	}
 	return typeName, fieldMap, nil
+}
+
+// unwrapEmbedded will recursively discover fields in embedded structs and add them to the fieldMap
+// to be able to scan into them. There is no guarantee over order, if the user has many shadowing
+// fields between structs perhaps the user should do some cleanup of the codebase.
+func unwrapEmbedded(fields map[string]reflect.StructField, anonfield *reflect.StructField) {
+	tod := anonfield.Type
+	embeddedFields := []*reflect.StructField{}
+	var ok bool
+	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
+		field := tod.Field(fieldIndex)
+		if field.Anonymous {
+			embeddedFields = append(embeddedFields, &field)
+			continue
+		}
+		name := nameFromTagOrName(field)
+		// the assumption that are no conflicting fields is made, if there were conflicting fields
+		// the user will most likely get a complain about ambiguous identifier before this or
+		// upon scanning next, it is too risky to try to recreate what the compiler would do.
+		_, ok = fields[name]
+		if !ok {
+			fields[name] = field
+		}
+	}
+	if len(embeddedFields) != 0 {
+		for _, v := range embeddedFields {
+			unwrapEmbedded(fields, v)
+		}
+	}
 }
 
 // FieldNamesFromType returns a list of strings with the field names for sql extracted from a type
@@ -176,7 +218,7 @@ func FieldRecipientsFromType(logger logging.Logger, sqlFields []string,
 	return FieldRecipientsFromValueOf(logger, sqlFields, fieldMap, vod)
 }
 
-// FieldRecipientsFromValueOf returns an array of pointer to attributes fomr the passed
+// FieldRecipientsFromValueOf returns an array of pointer to attributes from the passed
 // in reflect.Value.
 func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 	fieldMap map[string]reflect.StructField, vod reflect.Value) []interface{} {
@@ -190,7 +232,9 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 			fieldRecipients[i] = empty
 			continue
 		}
-		fieldRecipients[i] = vod.FieldByIndex(fVal.Index).Addr().Interface()
+		// We do this by name to be able to work around Anonymous fields (embedded structs) which
+		// are not as transparent to reflect as they are to basic syntax.
+		fieldRecipients[i] = vod.FieldByName(fVal.Name).Addr().Interface()
 	}
 	return fieldRecipients
 }
