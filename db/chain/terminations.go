@@ -22,7 +22,7 @@ import (
 
 // QueryIter is a convenience function to run the current chain through the db query with iterator.
 func (ec *ExpresionChain) QueryIter() (connection.ResultFetchIter, error) {
-	if ec.mainOperation.segment != sqlSelect {
+	if !ec.queryable() {
 		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
 			errors.Errorf("cannot invoke query iter with statements other than SELECT, please use Exec")
 	}
@@ -36,7 +36,7 @@ func (ec *ExpresionChain) QueryIter() (connection.ResultFetchIter, error) {
 
 // Query is a convenience function to run the current chain through the db query with iterator.
 func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
-	if ec.mainOperation.segment != sqlSelect {
+	if !ec.queryable() {
 		return func(interface{}) error { return nil },
 			errors.Errorf("cannot invoke query with statements other than SELECT, please use Exec")
 	}
@@ -50,7 +50,7 @@ func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
 
 // QueryPrimitive is a convenience function to run the current chain through the db query.
 func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
-	if ec.mainOperation.segment != sqlSelect {
+	if !ec.queryable() {
 		return func(interface{}) error { return nil },
 			errors.Errorf("cannot invoke query for primitives with statements other than SELECT, please use Exec")
 	}
@@ -128,4 +128,19 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 
 // TODO add batch running of many chains.
 
+// TODO Inspect stacklocation and try re-run queryies if arguments have similiar memory address to save serialization time
+
 // TODO Add pg Copy feature where possible to handle large inserts.
+
+// queryable handles checking if the function returns any results
+func (ec *ExpresionChain) queryable() bool {
+	if ec.mainOperation.segment == sqlInsert {
+		for _, segment := range ec.segments {
+			if segment.segment == sqlReturning {
+				return true
+			}
+		}
+		return false
+	}
+	return ec.mainOperation.segment == sqlSelect
+}
