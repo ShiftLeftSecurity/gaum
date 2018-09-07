@@ -200,16 +200,18 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantArgs: []interface{}{"value1", 2, "blah", 2, "blah"},
 			wantErr:  false,
 		},
-		/*
-			{
-				name: "basic insert with conflict on constraint with nulls",
-				chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": nil, "field3": "blah"}).
-					Table("convenient_table").OnConflict(OnConstraint, "id", DoNothing),
-				want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
-				wantArgs: []interface{}{"value1", "NULL", "blah"},
-				wantErr:  false,
-			},
-		*/
+		{
+			name: "basic insert with conflict on constraint with nulls",
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": nil, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnConstraint("id").DoNothing()
+				}),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
+			wantArgs: []interface{}{"value1", "NULL", "blah"},
+			wantErr:  false,
+		},
 		{
 			name: "selection with where and join and order by",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
