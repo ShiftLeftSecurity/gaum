@@ -22,6 +22,9 @@ import (
 
 // QueryIter is a convenience function to run the current chain through the db query with iterator.
 func (ec *ExpresionChain) QueryIter() (connection.ResultFetchIter, error) {
+	if ec.hasErr() {
+		return nil, ec.getErr()
+	}
 	if !ec.queryable() {
 		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
 			errors.Errorf("cannot invoke query iter with statements other than SELECT, please use Exec")
@@ -36,6 +39,9 @@ func (ec *ExpresionChain) QueryIter() (connection.ResultFetchIter, error) {
 
 // Query is a convenience function to run the current chain through the db query with iterator.
 func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
+	if ec.hasErr() {
+		return nil, ec.getErr()
+	}
 	if !ec.queryable() {
 		return func(interface{}) error { return nil },
 			errors.Errorf("cannot invoke query with statements other than SELECT, please use Exec")
@@ -50,6 +56,9 @@ func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
 
 // QueryPrimitive is a convenience function to run the current chain through the db query.
 func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
+	if ec.hasErr() {
+		return nil, ec.getErr()
+	}
 	if !ec.queryable() {
 		return func(interface{}) error { return nil },
 			errors.Errorf("cannot invoke query for primitives with statements other than SELECT, please use Exec")
@@ -70,6 +79,10 @@ func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
 
 // Exec executes the chain, works for Insert and Update
 func (ec *ExpresionChain) Exec() (execError error) {
+	if ec.hasErr() {
+		execError = ec.getErr()
+		return
+	}
 	var q string
 	var args []interface{}
 	q, args, execError = ec.Render()
@@ -112,6 +125,9 @@ func (ec *ExpresionChain) Exec() (execError error) {
 // Raw executes the query and tries to scan the result into fields without much safeguard nor
 // intelligence so you will have to put some of your own
 func (ec *ExpresionChain) Raw(fields ...interface{}) error {
+	if ec.hasErr() {
+		return ec.getErr()
+	}
 	if ec.mainOperation.segment != sqlSelect {
 		return errors.Errorf("cannot invoke query with statements other than SELECT, please use Exec")
 	}

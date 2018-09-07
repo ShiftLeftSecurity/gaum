@@ -44,6 +44,7 @@ type ExpresionChain struct {
 	set string
 
 	conflict *OnConflict
+	err      []error
 
 	db connection.DB
 }
@@ -224,7 +225,8 @@ func (ec *ExpresionChain) Delete() *ExpresionChain {
 // is an INSERT.
 func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 	if ec.conflict != nil {
-		panic("only 1 ON CONFLICT clause can be associated per statement")
+		ec.err = append(ec.err, errors.New("only 1 ON CONFLICT clause can be associated per statement"))
+		return ec
 	}
 	ec.conflict = &OnConflict{}
 	clause(ec.conflict)
@@ -241,7 +243,8 @@ func (ec *ExpresionChain) Returning(query RecursiveQuery) *ExpresionChain {
 	query(&localChain)
 	sql, args, err := localChain.render(true)
 	if err != nil {
-		panic(errors.Wrap(err, "failed to render recursive query").Error())
+		ec.err = append(ec.err, errors.Wrap(err, "failed to render recursive query"))
+		return ec
 	}
 	ec.append(
 		querySegmentAtom{
@@ -830,4 +833,21 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		return query, args, nil
 	}
 	return query, args, nil
+}
+
+// fetchErrors is a private thingy for checking if errors exist
+func (ec *ExpresionChain) hasErr() bool {
+	return len(ec.err) > 0
+}
+
+// getErr returns an error message about the stuff
+func (ec *ExpresionChain) getErr() error {
+	if ec.err == nil {
+		return nil
+	}
+	errMsg := make([]string, len(ec.err))
+	for index, anErr := range ec.err {
+		errMsg[index] = anErr.Error()
+	}
+	return errors.New(strings.Join(errMsg, " "))
 }
