@@ -136,24 +136,78 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert with conflict on column",
-			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
-				Table("convenient_table").Conflict("id", ConflictActionNothing),
-			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT id DO NOTHING",
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnColumn("field2").DoNothing()
+				}),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ( field2 ) DO NOTHING",
+			wantArgs: []interface{}{"value1", 2, "blah"},
+			wantErr:  false,
+		},
+		{
+			name: "advanced insert with conflict on column",
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnColumn("field2", "field3").DoNothing()
+				}),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ( field2, field3 ) DO NOTHING",
 			wantArgs: []interface{}{"value1", 2, "blah"},
 			wantErr:  false,
 		},
 		{
 			name: "basic insert with conflict on constraint",
-			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
-				Table("convenient_table").Conflict(Constraint("id"), ConflictActionNothing),
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnConstraint("id").DoNothing()
+				}),
 			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
 			wantArgs: []interface{}{"value1", 2, "blah"},
 			wantErr:  false,
 		},
 		{
+			name: "complex insert with an update to default clause",
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "foo"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnConstraint("id").DoUpdate().Set("field2", 4, "field3", "bar")
+				}),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO UPDATE SET field2 = $4, field3 = $5",
+			wantArgs: []interface{}{"value1", 2, "foo", 4, "bar"},
+			wantErr:  false,
+		},
+		{
+			name: "NOW THIS IS PODRACING!! Upsert WITH returning data",
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnConstraint("id").DoUpdate().Set("field2", 2)
+				}).
+				Returning(func(ec *ExpresionChain) {
+					ec.
+						Select("field1", "field2", "field3").
+						Table("convenient_table").
+						AndWhere("field3 = ?", "blah")
+				}),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO UPDATE SET field2 = $4 RETURNING SELECT field1, field2, field3 FROM convenient_table WHERE field3 = $5",
+			wantArgs: []interface{}{"value1", 2, "blah", 2, "blah"},
+			wantErr:  false,
+		},
+		{
 			name: "basic insert with conflict on constraint with nulls",
-			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": nil, "field3": "blah"}).
-				Table("convenient_table").Conflict(Constraint("id"), ConflictActionNothing),
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": nil, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.OnConstraint("id").DoNothing()
+				}),
 			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
 			wantArgs: []interface{}{"value1", "NULL", "blah"},
 			wantErr:  false,
@@ -305,10 +359,10 @@ func TestExpresionChain_Render(t *testing.T) {
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ExpresionChain.Render() \ngot = %q, \nwant %q", got, tt.want)
+				t.Errorf("ExpresionChain.Render() \ngot %q, \nwant %q", got, tt.want)
 			}
 			if !reflect.DeepEqual(got1, tt.wantArgs) {
-				t.Errorf("ExpresionChain.Render() got1 = %v, want %v", got1, tt.wantArgs)
+				t.Errorf("ExpresionChain.Render() got1 %v, want %v", got1, tt.wantArgs)
 			}
 		})
 	}

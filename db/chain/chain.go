@@ -27,7 +27,7 @@ import (
 
 // NewExpresionChain returns a new instance of ExpresionChain hooked to the passed DB
 func NewExpresionChain(db connection.DB) *ExpresionChain {
-	return &ExpresionChain{db: db, conflict: map[string]string{}}
+	return &ExpresionChain{db: db}
 }
 
 // ExpresionChain holds all the atoms for the SQL expresions that make a query and allows to chain
@@ -43,7 +43,8 @@ type ExpresionChain struct {
 
 	set string
 
-	conflict map[string]string
+	conflict *OnConflict
+	err      []error
 
 	db connection.DB
 }
@@ -220,23 +221,37 @@ func (ec *ExpresionChain) Delete() *ExpresionChain {
 	return ec
 }
 
-// ConflictAction represents a possible conflict resolution action.
-type ConflictAction string
-
-const (
-	// ConflictActionNothing represents a nil action on conflict
-	ConflictActionNothing ConflictAction = "NOTHING"
-)
-
 // Conflict will add a "ON CONFLICT" clause at the end of the query if the main operation
 // is an INSERT.
-// This requires a constraint or field name because I really want to be explicit when things
-// are to be ignored.
-func (ec *ExpresionChain) Conflict(constraint string, action ConflictAction) *ExpresionChain {
-	if ec.conflict == nil {
-		ec.conflict = map[string]string{}
+func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
+	if ec.conflict != nil {
+		ec.err = append(ec.err, errors.New("only 1 ON CONFLICT clause can be associated per statement"))
+		return ec
 	}
-	ec.conflict[constraint] = string(action)
+	ec.conflict = &OnConflict{}
+	clause(ec.conflict)
+	return ec
+}
+
+// RecursiveQuery is a nice little boi to make writing really string SQL actually pleasent
+type RecursiveQuery func(*ExpresionChain)
+
+// Returning will add an "RETURNING" clause at the end of the query if the main operation
+// is an INSERT.
+func (ec *ExpresionChain) Returning(query RecursiveQuery) *ExpresionChain {
+	localChain := ExpresionChain{}
+	query(&localChain)
+	sql, args, err := localChain.render(true)
+	if err != nil {
+		ec.err = append(ec.err, errors.Wrap(err, "failed to render recursive query"))
+		return ec
+	}
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlReturning,
+			expresion: "RETURNING " + sql,
+			arguments: args,
+		})
 	return ec
 }
 
@@ -502,6 +517,7 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	// TODO: make this a bit less ugly
 	// TODO: identify escaped questionmarks
 	// TODO: use an actual parser <3
+	// TODO: structure query segments around SQL-Standard AST
 	queryWithArgs := ""
 	argCounter := 1
 	argPositioner := 0
@@ -544,6 +560,8 @@ func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) 
 	for i := range ec.mainOperation.arguments {
 		placeholders[i] = "?"
 	}
+
+	// build insert
 	args := make([]interface{}, 0)
 	args = append(args, ec.mainOperation.arguments...)
 	query := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)",
@@ -551,17 +569,28 @@ func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) 
 		ec.mainOperation.expresion,
 		strings.Join(placeholders, ", "))
 
-	conflicts := []string{}
-	for k, v := range ec.conflict {
-		if v == "" {
+	// render conflict
+	conflict, conflictArgs := ec.conflict.render()
+	if conflict != "" {
+		query += " " + conflict
+	}
+
+	// operationally do something with it
+	if len(conflictArgs) > 0 {
+		args = append(args, conflictArgs...)
+	}
+
+	// look for clauses we can handle
+	for _, segment := range ec.segments {
+		// skip all that stuff we can't handle
+		if segment.segment != sqlReturning {
 			continue
 		}
-		// TODO make parentheses be magic
-		conflicts = append(conflicts,
-			fmt.Sprintf("ON CONFLICT %s DO %s", k, v))
-	}
-	if len(conflicts) > 0 {
-		query += " " + strings.Join(conflicts, ", ")
+		query += " " + segment.expresion
+		// add arguments
+		if len(segment.arguments) > 0 {
+			args = append(args, segment.arguments...)
+		}
 	}
 
 	if !raw {
@@ -599,17 +628,28 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 		ec.mainOperation.expresion,
 		strings.Join(values, ", "))
 
-	conflicts := []string{}
-	for k, v := range ec.conflict {
-		if v == "" {
+	// render conflict
+	conflict, conflictArgs := ec.conflict.render()
+	if conflict != "" {
+		query += " " + conflict
+	}
+
+	// operationally do something with it
+	if len(conflictArgs) > 0 {
+		args = append(args, conflictArgs...)
+	}
+
+	// look for clauses we can handle
+	for _, segment := range ec.segments {
+		// skip all that stuff we can't handle
+		if segment.segment != sqlReturning {
 			continue
 		}
-		// TODO make parentheses be magic
-		conflicts = append(conflicts,
-			fmt.Sprintf("ON CONFLICT %s DO %s", k, v))
-	}
-	if len(conflicts) > 0 {
-		query += " " + strings.Join(conflicts, ", ")
+		query += " " + segment.expresion
+		// add arguments
+		if len(segment.arguments) > 0 {
+			args = append(args, segment.arguments...)
+		}
 	}
 
 	if !raw {
@@ -675,8 +715,8 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 	if ec.mainOperation == nil {
 		return "", nil, errors.Errorf("missing main operation to perform on the db")
 	}
-	// INSERT
 	switch ec.mainOperation.segment {
+	// INSERT
 	case sqlInsert:
 		// Too much of a special cookie for the general case.
 		return ec.renderInsert(raw)
@@ -774,17 +814,14 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		query += strings.Join(orderCriteria, ", ")
 	}
 
-	// LIMIT and OFFSET only make sense in SELECT, I think.
-	if ec.mainOperation.segment == sqlSelect {
-		if ec.limit != nil {
-			query += " LIMIT " + ec.limit.expresion
-			args = append(args, ec.limit.arguments...)
-		}
+	if ec.limit != nil {
+		query += " LIMIT " + ec.limit.expresion
+		args = append(args, ec.limit.arguments...)
+	}
 
-		if ec.offset != nil {
-			query += " OFFSET " + ec.offset.expresion
-			args = append(args, ec.offset.arguments...)
-		}
+	if ec.offset != nil {
+		query += " OFFSET " + ec.offset.expresion
+		args = append(args, ec.offset.arguments...)
 	}
 
 	if !raw {
@@ -796,4 +833,21 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		return query, args, nil
 	}
 	return query, args, nil
+}
+
+// fetchErrors is a private thingy for checking if errors exist
+func (ec *ExpresionChain) hasErr() bool {
+	return len(ec.err) > 0
+}
+
+// getErr returns an error message about the stuff
+func (ec *ExpresionChain) getErr() error {
+	if ec.err == nil {
+		return nil
+	}
+	errMsg := make([]string, len(ec.err))
+	for index, anErr := range ec.err {
+		errMsg[index] = anErr.Error()
+	}
+	return errors.New(strings.Join(errMsg, " "))
 }
