@@ -91,7 +91,7 @@ var nonFields = []struct {
 		replace: []byte{},
 	},
 	{
-		re:      regexp.MustCompile(`[a-z|A-Z]*\(.*\)`), // strips funcs
+		re:      regexp.MustCompile(`[a-z|A-Z]*\([^\(\)]*\)`), // strips funcs
 		replace: []byte("placeholder"),
 	},
 }
@@ -102,6 +102,9 @@ func (q *querySegmentAtom) fields() []string {
 		expr := strings.ToLower(q.expresion)
 		for _, nf := range nonFields {
 			expr = string(nf.re.ReplaceAll([]byte(expr), nf.replace))
+			if nf.re.Match([]byte(expr)) { // account for nested expressions
+				expr = string(nf.re.ReplaceAll([]byte(expr), nf.replace))
+			}
 		}
 		rawFields := strings.Split(expr, ",")
 		for _, field := range rawFields {
