@@ -444,7 +444,9 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	}
 
 	// Third attempt, this should work
-	insertQuery.Conflict(chain.Constraint("therecanbeonlyone"), chain.ConflictActionNothing)
+	insertQuery.OnConflict(func(c *chain.OnConflict) {
+		c.OnConstraint("therecanbeonlyone").DoNothing()
+	})
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
 	queryString, queryArgs, _ = insertQuery.Render()

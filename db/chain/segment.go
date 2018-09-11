@@ -82,8 +82,18 @@ func (q *querySegmentAtom) clone() querySegmentAtom {
 	}
 }
 
-var nonFields = []*regexp.Regexp{
-	regexp.MustCompile(`distinct on \(.+\)`),
+var nonFields = []struct {
+	re      *regexp.Regexp
+	replace []byte
+}{
+	{
+		re:      regexp.MustCompile(`distinct on \(.+\)`),
+		replace: []byte{},
+	},
+	{
+		re:      regexp.MustCompile(`[a-z|A-Z]*\(.*\)`), // strips funcs
+		replace: []byte("placeholder"),
+	},
 }
 
 func (q *querySegmentAtom) fields() []string {
@@ -91,7 +101,7 @@ func (q *querySegmentAtom) fields() []string {
 	if q.segment == sqlSelect {
 		expr := strings.ToLower(q.expresion)
 		for _, nf := range nonFields {
-			expr = string(nf.ReplaceAll([]byte(expr), []byte{}))
+			expr = string(nf.re.ReplaceAll([]byte(expr), nf.replace))
 		}
 		rawFields := strings.Split(expr, ",")
 		for _, field := range rawFields {
