@@ -237,7 +237,7 @@ func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 // is an INSERT.
 func (ec *ExpresionChain) Returning(args ...string) *ExpresionChain {
 	if ec.mainOperation == nil ||
-		(ec.mainOperation.segment != sqlInsert || ec.mainOperation.segment != sqlUpdate) {
+		(ec.mainOperation.segment != sqlInsert && ec.mainOperation.segment != sqlUpdate) {
 		ec.err = append(ec.err, errors.New("Returning is only valid on UPDATE and INSERT statements"))
 	}
 	ec.append(
