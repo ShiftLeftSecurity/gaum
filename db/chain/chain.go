@@ -233,24 +233,16 @@ func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 	return ec
 }
 
-// RecursiveQuery is a nice little boi to make writing really string SQL actually pleasent
-type RecursiveQuery func(*ExpresionChain)
-
 // Returning will add an "RETURNING" clause at the end of the query if the main operation
 // is an INSERT.
-func (ec *ExpresionChain) Returning(query RecursiveQuery) *ExpresionChain {
-	localChain := ExpresionChain{}
-	query(&localChain)
-	sql, args, err := localChain.render(true)
-	if err != nil {
-		ec.err = append(ec.err, errors.Wrap(err, "failed to render recursive query"))
-		return ec
+func (ec *ExpresionChain) Returning(args ...string) *ExpresionChain {
+	if ec.mainOperation == nil || ec.mainOperation.segment != sqlInsert {
+		ec.err = append(ec.err, errors.New("Returning is only valid on INSERT statements"))
 	}
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlReturning,
-			expresion: "RETURNING " + sql,
-			arguments: args,
+			expresion: "RETURNING " + strings.Join(args, ", "),
 		})
 	return ec
 }
@@ -352,6 +344,15 @@ func (ec *ExpresionChain) UpdateMap(exprMap map[string]interface{}) *ExpresionCh
 // Table sets the table to be used in the 'FROM' expresion.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) Table(table string) *ExpresionChain {
+	ec.setTable(table)
+	return ec
+}
+
+// From sets the table to be used in the `FROM` expresion.
+// Functionally this is identical to `Table()`, but it makes
+// code more readiable in some circumstances.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) From(table string) *ExpresionChain {
 	ec.setTable(table)
 	return ec
 }

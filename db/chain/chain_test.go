@@ -190,14 +190,9 @@ func TestExpresionChain_Render(t *testing.T) {
 				OnConflict(func(c *OnConflict) {
 					c.OnConstraint("id").DoUpdate().Set("field2", 2)
 				}).
-				Returning(func(ec *ExpresionChain) {
-					ec.
-						Select("field1", "field2", "field3").
-						Table("convenient_table").
-						AndWhere("field3 = ?", "blah")
-				}),
-			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO UPDATE SET field2 = $4 RETURNING SELECT field1, field2, field3 FROM convenient_table WHERE field3 = $5",
-			wantArgs: []interface{}{"value1", 2, "blah", 2, "blah"},
+				Returning("field1", "field2", "field3"),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO UPDATE SET field2 = $4 RETURNING field1, field2, field3",
+			wantArgs: []interface{}{"value1", 2, "blah", 2},
 			wantErr:  false,
 		},
 		{
