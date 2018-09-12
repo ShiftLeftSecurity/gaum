@@ -200,8 +200,11 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 			sql.ErrNoRows
 	}
 	if len(fields) == 0 {
-		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
-			errors.New("no fields passed to fetch")
+		fields, err = rows.Columns()
+		if err != nil {
+			return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
+				errors.Wrap(err, "could not fetch field information from query")
+		}
 	}
 	return func(destination interface{}) (bool, func(), error) {
 		var err error
@@ -323,7 +326,10 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 		tod := reflect.TypeOf(destination).Elem().Elem()
 
 		if len(fields) == 0 {
-			return errors.New("no fields passed to fetch")
+			fields, err = rows.Columns()
+			if err != nil {
+				return errors.Wrap(err, "could not fetch field information from query")
+			}
 		}
 
 		for rows.Next() {
