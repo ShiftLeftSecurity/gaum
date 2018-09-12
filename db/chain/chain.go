@@ -236,8 +236,9 @@ func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 // Returning will add an "RETURNING" clause at the end of the query if the main operation
 // is an INSERT.
 func (ec *ExpresionChain) Returning(args ...string) *ExpresionChain {
-	if ec.mainOperation == nil || ec.mainOperation.segment != sqlInsert {
-		ec.err = append(ec.err, errors.New("Returning is only valid on INSERT statements"))
+	if ec.mainOperation == nil ||
+		(ec.mainOperation.segment != sqlInsert || ec.mainOperation.segment != sqlUpdate) {
+		ec.err = append(ec.err, errors.New("Returning is only valid on UPDATE and INSERT statements"))
 	}
 	ec.append(
 		querySegmentAtom{
