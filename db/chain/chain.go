@@ -527,16 +527,24 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	for _, queryChar := range q {
 		if queryChar == '?' {
 			arg := args[argPositioner]
-			if reflect.TypeOf(arg).Kind() == reflect.Slice {
-				s := reflect.ValueOf(arg)
-				placeholders := []string{}
-				for i := 0; i < s.Len(); i++ {
-					expandedArgs = append(expandedArgs, s.Index(i).Interface())
-					placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
-					argCounter++
+			switch reflect.TypeOf(arg).Kind() {
+			case reflect.Slice:
+				elementType := reflect.TypeOf(arg).Elem().Kind()
+				if elementType != reflect.Int8 && elementType != reflect.Uint8 {
+					s := reflect.ValueOf(arg)
+					placeholders := []string{}
+					for i := 0; i < s.Len(); i++ {
+						expandedArgs = append(expandedArgs, s.Index(i).Interface())
+						placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
+						argCounter++
+					}
+					queryWithArgs += strings.Join(placeholders, ", ")
+					// specifically avoid `[]byte`
+					break
 				}
-				queryWithArgs += strings.Join(placeholders, ", ")
-			} else {
+				// handle `[]byte` like everything else
+				fallthrough
+			default:
 				expandedArgs = append(expandedArgs, arg)
 				queryWithArgs += fmt.Sprintf("$%d", argCounter)
 				argCounter++

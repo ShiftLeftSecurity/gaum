@@ -278,7 +278,16 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "basic update with where and join",
+			name: "update with bytea data",
+			chain: (&ExpresionChain{}).Update("field1 = ?", []byte{0xde, 0xed, 0xbe, 0xef}).
+				Table("convenient_table").
+				Returning("*"),
+			want:     "UPDATE convenient_table SET field1 = $1 RETURNING *",
+			wantArgs: []interface{}{[]byte{0xde, 0xed, 0xbe, 0xef}},
+			wantErr:  false,
+		},
+		{
+			name: "basic update with RETURNING",
 			chain: (&ExpresionChain{}).Update("status = ?", 9).
 				Table("convenient_table").
 				AndWhere("value IN (?, ?)", 1, 2).
