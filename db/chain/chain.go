@@ -539,11 +539,11 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 						argCounter++
 					}
 					queryWithArgs += strings.Join(placeholders, ", ")
-					// specifically avoid `[]byte`
-					break
+				} else {
+					expandedArgs = append(expandedArgs, arg)
+					queryWithArgs += fmt.Sprintf("$%d", argCounter)
+					argCounter++
 				}
-				// handle `[]byte` like everything else
-				fallthrough
 			default:
 				expandedArgs = append(expandedArgs, arg)
 				queryWithArgs += fmt.Sprintf("$%d", argCounter)
