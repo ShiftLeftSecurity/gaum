@@ -255,7 +255,7 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 	}
 	return func(destination interface{}) error {
 		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
-			return errors.Errorf("the passed receiver is not a pointer, connection is still open")
+			return errors.New("YOU NEED TO PASS A *[]T, if you pass a `[]T` or `[]*T` or `T` you'll get this message again")
 		}
 		// TODO add a timer that closes rows if nothing is done.
 		defer rows.Close()
@@ -312,7 +312,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 
 	return func(destination interface{}) error {
 		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
-			return errors.Errorf("the passed receiver is not a pointer, connection is still open")
+			return errors.New("YOU NEED TO PASS A `*[]T`, if you pass a `[]T` or `[]*T` or `T` you'll get this message again")
 		}
 		// TODO add a timer that closes rows if nothing is done.
 		defer rows.Close()
