@@ -816,6 +816,17 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		query += strings.Join(orderCriteria, ", ")
 	}
 
+	// RETURNING
+	for _, segment := range ec.segments {
+		if segment.segment != sqlReturning {
+			continue
+		}
+		query += " " + segment.expresion
+		if len(segment.arguments) > 0 {
+			args = append(args, segment.arguments...)
+		}
+	}
+
 	if ec.limit != nil {
 		query += " LIMIT " + ec.limit.expresion
 		args = append(args, ec.limit.arguments...)

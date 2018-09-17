@@ -279,6 +279,16 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic update with where and join",
+			chain: (&ExpresionChain{}).Update("status = ?", 9).
+				Table("convenient_table").
+				AndWhere("value IN (?, ?)", 1, 2).
+				Returning("*"),
+			want:     "UPDATE convenient_table SET status = $1 WHERE value IN ($2, $3) RETURNING *",
+			wantArgs: []interface{}{9, 1, 2},
+			wantErr:  false,
+		},
+		{
+			name: "basic update with where and join",
 			chain: (&ExpresionChain{}).Update("field1 = ?, field3 = ?", "value2", nil).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
