@@ -235,6 +235,10 @@ func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 
 // Returning will add an "RETURNING" clause at the end of the query if the main operation
 // is an INSERT.
+//
+// Please note that `Returning` likely doesn't do what you expect. There are systemic issues
+// with dependencies and `go-lang` standard library that prevent it from operating correctly
+// in many scenarios.
 func (ec *ExpresionChain) Returning(args ...string) *ExpresionChain {
 	if ec.mainOperation == nil ||
 		(ec.mainOperation.segment != sqlInsert && ec.mainOperation.segment != sqlUpdate) {
