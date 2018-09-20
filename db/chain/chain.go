@@ -351,7 +351,7 @@ func (ec *ExpresionChain) Table(table string) *ExpresionChain {
 
 // From sets the table to be used in the `FROM` expresion.
 // Functionally this is identical to `Table()`, but it makes
-// code more readiable in some circumstances.
+// code more readable in some circumstances.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) From(table string) *ExpresionChain {
 	ec.setTable(table)
