@@ -233,24 +233,21 @@ func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 	return ec
 }
 
-// RecursiveQuery is a nice little boi to make writing really string SQL actually pleasent
-type RecursiveQuery func(*ExpresionChain)
-
 // Returning will add an "RETURNING" clause at the end of the query if the main operation
 // is an INSERT.
-func (ec *ExpresionChain) Returning(query RecursiveQuery) *ExpresionChain {
-	localChain := ExpresionChain{}
-	query(&localChain)
-	sql, args, err := localChain.render(true)
-	if err != nil {
-		ec.err = append(ec.err, errors.Wrap(err, "failed to render recursive query"))
-		return ec
+//
+// Please note that `Returning` likely doesn't do what you expect. There are systemic issues
+// with dependencies and `go-lang` standard library that prevent it from operating correctly
+// in many scenarios.
+func (ec *ExpresionChain) Returning(args ...string) *ExpresionChain {
+	if ec.mainOperation == nil ||
+		(ec.mainOperation.segment != sqlInsert && ec.mainOperation.segment != sqlUpdate) {
+		ec.err = append(ec.err, errors.New("Returning is only valid on UPDATE and INSERT statements"))
 	}
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlReturning,
-			expresion: "RETURNING " + sql,
-			arguments: args,
+			expresion: "RETURNING " + strings.Join(args, ", "),
 		})
 	return ec
 }
@@ -352,6 +349,15 @@ func (ec *ExpresionChain) UpdateMap(exprMap map[string]interface{}) *ExpresionCh
 // Table sets the table to be used in the 'FROM' expresion.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) Table(table string) *ExpresionChain {
+	ec.setTable(table)
+	return ec
+}
+
+// From sets the table to be used in the `FROM` expresion.
+// Functionally this is identical to `Table()`, but it makes
+// code more readable in some circumstances.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) From(table string) *ExpresionChain {
 	ec.setTable(table)
 	return ec
 }
@@ -525,16 +531,24 @@ func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	for _, queryChar := range q {
 		if queryChar == '?' {
 			arg := args[argPositioner]
-			if reflect.TypeOf(arg).Kind() == reflect.Slice {
-				s := reflect.ValueOf(arg)
-				placeholders := []string{}
-				for i := 0; i < s.Len(); i++ {
-					expandedArgs = append(expandedArgs, s.Index(i).Interface())
-					placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
+			switch reflect.TypeOf(arg).Kind() {
+			case reflect.Slice:
+				elementType := reflect.TypeOf(arg).Elem().Kind()
+				if elementType != reflect.Int8 && elementType != reflect.Uint8 {
+					s := reflect.ValueOf(arg)
+					placeholders := []string{}
+					for i := 0; i < s.Len(); i++ {
+						expandedArgs = append(expandedArgs, s.Index(i).Interface())
+						placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
+						argCounter++
+					}
+					queryWithArgs += strings.Join(placeholders, ", ")
+				} else {
+					expandedArgs = append(expandedArgs, arg)
+					queryWithArgs += fmt.Sprintf("$%d", argCounter)
 					argCounter++
 				}
-				queryWithArgs += strings.Join(placeholders, ", ")
-			} else {
+			default:
 				expandedArgs = append(expandedArgs, arg)
 				queryWithArgs += fmt.Sprintf("$%d", argCounter)
 				argCounter++
@@ -812,6 +826,17 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		}
 		query += orderByStatemet
 		query += strings.Join(orderCriteria, ", ")
+	}
+
+	// RETURNING
+	for _, segment := range ec.segments {
+		if segment.segment != sqlReturning {
+			continue
+		}
+		query += " " + segment.expresion
+		if len(segment.arguments) > 0 {
+			args = append(args, segment.arguments...)
+		}
 	}
 
 	if ec.limit != nil {

@@ -200,8 +200,11 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 			sql.ErrNoRows
 	}
 	if len(fields) == 0 {
-		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
-			errors.New("no fields passed to fetch")
+		fields, err = rows.Columns()
+		if err != nil {
+			return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
+				errors.Wrap(err, "could not fetch field information from query")
+		}
 	}
 	return func(destination interface{}) (bool, func(), error) {
 		var err error
@@ -251,11 +254,11 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 			errors.Wrap(err, "querying database")
 	}
 	return func(destination interface{}) error {
+		defer rows.Close()
 		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
-			return errors.Errorf("the passed receiver is not a pointer, connection is still open")
+			return errors.New("YOU NEED TO PASS A *[]T, if you pass a `[]T` or `[]*T` or `T` you'll get this message again")
 		}
 		// TODO add a timer that closes rows if nothing is done.
-		defer rows.Close()
 		var err error
 		reflect.ValueOf(destination).Elem().Set(reflect.MakeSlice(reflect.TypeOf(destination).Elem(), 0, 0))
 
@@ -308,11 +311,11 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 	var fieldMap map[string]reflect.StructField
 
 	return func(destination interface{}) error {
+		defer rows.Close()
 		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
-			return errors.Errorf("the passed receiver is not a pointer, connection is still open")
+			return errors.New("YOU NEED TO PASS A `*[]T`, if you pass a `[]T` or `[]*T` or `T` you'll get this message again")
 		}
 		// TODO add a timer that closes rows if nothing is done.
-		defer rows.Close()
 		var err error
 		reflect.ValueOf(destination).Elem().Set(reflect.MakeSlice(reflect.TypeOf(destination).Elem(), 0, 0))
 
@@ -323,7 +326,10 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 		tod := reflect.TypeOf(destination).Elem().Elem()
 
 		if len(fields) == 0 {
-			return errors.New("no fields passed to fetch")
+			fields, err = rows.Columns()
+			if err != nil {
+				return errors.Wrap(err, "could not fetch field information from query")
+			}
 		}
 
 		for rows.Next() {
@@ -341,7 +347,6 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 					reflect.Map, reflect.Slice,
 				})
 			if err != nil {
-				defer rows.Close()
 				return errors.Wrapf(err, "cant fetch data into %T", destination)
 			}
 
@@ -351,7 +356,6 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			// Try to fetch the data
 			err = rows.Scan(fieldRecipients...)
 			if err != nil {
-				defer rows.Close()
 				return errors.Wrap(err, "scanning values into recipient, connection was closed")
 			}
 			// Add to the passed slice, this will actually add to an already populated slice if one

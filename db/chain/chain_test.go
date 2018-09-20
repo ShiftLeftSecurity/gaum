@@ -190,14 +190,9 @@ func TestExpresionChain_Render(t *testing.T) {
 				OnConflict(func(c *OnConflict) {
 					c.OnConstraint("id").DoUpdate().Set("field2", 2)
 				}).
-				Returning(func(ec *ExpresionChain) {
-					ec.
-						Select("field1", "field2", "field3").
-						Table("convenient_table").
-						AndWhere("field3 = ?", "blah")
-				}),
-			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO UPDATE SET field2 = $4 RETURNING SELECT field1, field2, field3 FROM convenient_table WHERE field3 = $5",
-			wantArgs: []interface{}{"value1", 2, "blah", 2, "blah"},
+				Returning("field1", "field2", "field3"),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO UPDATE SET field2 = $4 RETURNING field1, field2, field3",
+			wantArgs: []interface{}{"value1", 2, "blah", 2},
 			wantErr:  false,
 		},
 		{
@@ -280,6 +275,25 @@ func TestExpresionChain_Render(t *testing.T) {
 				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
 			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
 			wantArgs: []interface{}{"value2", 9, "unpirulo", 1, 2, "pajarito"},
+			wantErr:  false,
+		},
+		{
+			name: "update with bytea data",
+			chain: (&ExpresionChain{}).Update("field1 = ?", []byte{0xde, 0xed, 0xbe, 0xef}).
+				Table("convenient_table").
+				Returning("*"),
+			want:     "UPDATE convenient_table SET field1 = $1 RETURNING *",
+			wantArgs: []interface{}{[]byte{0xde, 0xed, 0xbe, 0xef}},
+			wantErr:  false,
+		},
+		{
+			name: "basic update with RETURNING",
+			chain: (&ExpresionChain{}).Update("status = ?", 9).
+				Table("convenient_table").
+				AndWhere("value IN (?, ?)", 1, 2).
+				Returning("*"),
+			want:     "UPDATE convenient_table SET status = $1 WHERE value IN ($2, $3) RETURNING *",
+			wantArgs: []interface{}{9, 1, 2},
 			wantErr:  false,
 		},
 		{
