@@ -24,6 +24,22 @@ const (
 	CurrentTimestampPGFn = "CURRENT_TIMESTAMP"
 )
 
+// NillableString returns a safely dereferenced string from it's pointer.
+func NillableString(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// NillableInt64 returns a safely dereferenced int64 from it's pointer.
+func NillableInt64(i *int64) int64 {
+	if i == nil {
+		return 0
+	}
+	return *i
+}
+
 // Constraint wraps the passed constraint name with the required SQL to use it.
 func Constraint(constraint string) string {
 	return "ON CONSTRAINT " + constraint

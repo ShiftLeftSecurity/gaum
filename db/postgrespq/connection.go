@@ -199,7 +199,7 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
 			sql.ErrNoRows
 	}
-	if len(fields) == 0 {
+	if len(fields) == 0 || (len(fields) == 1 && fields[0] == "*") {
 		fields, err = rows.Columns()
 		if err != nil {
 			return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
@@ -325,7 +325,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 		// If this is not Ptr->Slice->Type it would have failed already.
 		tod := reflect.TypeOf(destination).Elem().Elem()
 
-		if len(fields) == 0 {
+		if len(fields) == 0 || (len(fields) == 1 && fields[0] == "*") {
 			fields, err = rows.Columns()
 			if err != nil {
 				return errors.Wrap(err, "could not fetch field information from query")
