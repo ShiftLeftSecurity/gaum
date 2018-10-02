@@ -128,7 +128,7 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 	if ec.hasErr() {
 		return ec.getErr()
 	}
-	if ec.mainOperation.segment != sqlSelect {
+	if !ec.queryable() {
 		return errors.Errorf("cannot invoke query with statements other than SELECT, please use Exec")
 	}
 	q, args, err := ec.Render()

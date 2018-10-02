@@ -79,3 +79,7 @@ func TestConnector_Transaction(t *testing.T) {
 func TestConnector_QueryPrimitives(t *testing.T) {
 	connection_testing.DoTestConnector_QueryPrimitives(t, newDB)
 }
+
+func TestConnector_RegressionReturning(t *testing.T) {
+	connection_testing.DoTestConnector_Regression_Returning(t, newDB)
+}

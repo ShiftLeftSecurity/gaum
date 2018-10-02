@@ -67,6 +67,10 @@ func DoTestConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
 	testConnector_QueryPrimitives(t, newDB)
 }
 
+func DoTestConnector_Regression_Returning(t *testing.T, newDB NewDB) {
+	testConnector_Regression_Returning(t, newDB)
+}
+
 type NewDB func(t *testing.T) connection.DB
 
 func testConnector_QueryIter(t *testing.T, newDB NewDB) {
@@ -600,4 +604,47 @@ func testConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
 
 	}
 
+}
+
+func testConnector_Regression_Returning(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+	var oneID int64
+	var oneDescription string
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+
+	err := query.Insert(map[string]interface{}{
+		"id":          11,
+		"description": "this should be in the db",
+	}).
+		Table("justforfun").Exec()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	query.Insert(map[string]interface{}{
+		"id":          11,
+		"description": "this should be the updated value",
+	}).
+		Table("justforfun").
+		OnConflict(func(c *chain.OnConflict) {
+			c.OnConstraint("therecanbeonlyone").DoUpdate().Set("description",
+				"this should be the updated value")
+		}).
+		Returning("id, description")
+	render, _, _ := query.Render()
+	t.Log(render)
+	query.Raw(&oneID, &oneDescription)
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	if oneID != 11 {
+		t.Logf("row Id is %d expected 1", oneID)
+		t.FailNow()
+	}
+	if oneDescription != "this should be the updated value" {
+		t.Logf("row Description is %q expected \"first\"", oneDescription)
+		t.FailNow()
+	}
 }

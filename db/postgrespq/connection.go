@@ -17,7 +17,6 @@ package postgrespq
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"os"
 	"reflect"
@@ -173,7 +172,6 @@ func snakesToCamels(s string) string {
 func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
 	var rows *sql.Rows
 	var err error
-	d.logger.Debug(fmt.Sprintf("will use fields: %#v", fields))
 	var connQ func(string, ...interface{}) (*sql.Rows, error)
 	if d.tx != nil {
 		connQ = d.tx.Query
