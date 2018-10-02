@@ -363,6 +363,21 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantArgs: []interface{}{"oneproject", "twoproject", "orgidasdasasds"},
 			wantErr:  false,
 		},
+		{
+			name: "insert returning with where, a bit of everything",
+			chain: (&ExpresionChain{}).Insert(map[string]interface{}{
+				"field1": "somethingelse",
+				"field2": 2,
+			}).
+				Table("atablename").OnConflict(func(c *OnConflict) {
+				c.OnColumn("field1").DoUpdate().SetSQL("field2", "atablename.field2 + 1").
+					Where((&ExpresionChain{}).AndWhere(Equals("atablename.field1"), "something"))
+			}).
+				Returning("atablename.field2"),
+			want:     "INSERT INTO atablename (field1, field2) VALUES ($1, $2) ON CONFLICT ( field1 ) DO UPDATE SET (field2) = (atablename.field2 + 1) WHERE  atablename.field1 = $3 RETURNING atablename.field2",
+			wantArgs: []interface{}{"somethingelse", 2, "something"},
+			wantErr:  false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
