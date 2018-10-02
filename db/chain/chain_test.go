@@ -370,7 +370,7 @@ func TestExpresionChain_Render(t *testing.T) {
 				"field2": 2,
 			}).
 				Table("atablename").OnConflict(func(c *OnConflict) {
-				c.OnColumn("field1").DoUpdate().SetSQL("(field2)", "(atablename.field2 + 1)").
+				c.OnColumn("field1").DoUpdate().SetSQL("field2", "atablename.field2 + 1").
 					Where((&ExpresionChain{}).AndWhere(Equals("atablename.field1"), "something"))
 			}).
 				Returning("atablename.field2"),

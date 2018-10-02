@@ -112,7 +112,7 @@ func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 			key = arg
 		} else {
 			*o.operatorList = append(*o.operatorList, argList{
-				text: key + " = " + arg,
+				text: "(" + key + ") = (" + arg + ")",
 			})
 		}
 	}
