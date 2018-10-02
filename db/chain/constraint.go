@@ -81,7 +81,7 @@ func (o *OnUpdate) SetNow(column string) *OnUpdate {
 	return o
 }
 
-// Sets a field to a value
+// Set Sets a field to a value
 func (o *OnUpdate) Set(args ...interface{}) *OnUpdate {
 	if len(args)%2 != 0 {
 		panic("arguments to `DoUpdate().Set(...)` must be even in length")
@@ -100,10 +100,41 @@ func (o *OnUpdate) Set(args ...interface{}) *OnUpdate {
 	return o
 }
 
+// SetSQL Sets a field to a value that needs no escaping, it is assumed to be SQL valid (an
+// expression or column)
+func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
+	if len(args)%2 != 0 {
+		panic("arguments to `DoUpdate().SetSQL(...)` must be even in length")
+	}
+	var key string
+	for index, arg := range args {
+		if index%2 == 0 {
+			key = arg
+		} else {
+			*o.operatorList = append(*o.operatorList, argList{
+				text: key + " = " + arg,
+			})
+		}
+	}
+	return o
+}
+
+// Where Adds Where condition to an update on conflict, does not return the OnUpdate because it
+// is intended to be the last part of the expresion.
+func (o *OnUpdate) Where(ec *ExpresionChain) {
+	whereCondition, whereArgs := ec.renderWhereRaw()
+	*o.operatorList = append(*o.operatorList, argList{
+		text:        "WHERE " + whereCondition,
+		data:        whereArgs,
+		termination: true,
+	})
+}
+
 // argList handles the messy argument collection work
 type argList struct {
-	text string
-	data interface{}
+	text        string
+	data        interface{}
+	termination bool
 }
 
 // render handles walking the OnConflict object
@@ -126,7 +157,22 @@ func (o *OnConflict) render() (string, []interface{}) {
 	// collect args
 	var localArgs []string
 	for _, arg := range o.action.operatorList {
+		if arg.termination {
+			continue
+		}
 		localArgs = append(localArgs, arg.text)
+		if arg.data != nil {
+			outputArgs = append(outputArgs, arg.data)
+		}
+	}
+
+	// collect termination args, a complexity gifted to us by update
+	var terminationArgs []string
+	for _, arg := range o.action.operatorList {
+		if !arg.termination {
+			continue
+		}
+		terminationArgs = append(terminationArgs, arg.text)
 		if arg.data != nil {
 			outputArgs = append(outputArgs, arg.data)
 		}
@@ -135,6 +181,9 @@ func (o *OnConflict) render() (string, []interface{}) {
 	// build output
 	if len(localArgs) > 0 {
 		formatOutput = append(formatOutput, strings.Join(localArgs, ", "))
+	}
+	if len(terminationArgs) > 0 {
+		formatOutput = append(formatOutput, strings.Join(terminationArgs, " "))
 	}
 	return strings.Join(formatOutput, " "), outputArgs
 }
