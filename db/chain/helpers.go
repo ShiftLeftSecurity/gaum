@@ -24,6 +24,18 @@ const (
 	CurrentTimestampPGFn = "CURRENT_TIMESTAMP"
 )
 
+// TablePrefix returns a function that prefixes column names with the passed table name.
+func TablePrefix(n string) func(string) string {
+	if n == "" {
+		return func(c string) string {
+			return c
+		}
+	}
+	return func(c string) string {
+		return fmt.Sprintf("%s.%s", n, c)
+	}
+}
+
 // NillableString returns a safely dereferenced string from it's pointer.
 func NillableString(s *string) string {
 	if s == nil {
