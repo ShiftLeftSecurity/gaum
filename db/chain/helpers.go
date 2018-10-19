@@ -24,6 +24,36 @@ const (
 	CurrentTimestampPGFn = "CURRENT_TIMESTAMP"
 )
 
+// SimpleFunction returns the rendered fName invocation passing params as argument
+func SimpleFunction(fName, params string) string {
+	return fmt.Sprintf("%s(%s)", fName, params)
+}
+
+// AVG Renders SQL AVG of the expresion in column
+func AVG(column string) string {
+	return SimpleFunction("AVG", column)
+}
+
+// COUNT Renders SQL COUNT of the expresion in column
+func COUNT(column string) string {
+	return SimpleFunction("COUNT", column)
+}
+
+// MIN Renders SQL MIN of the expresion in column
+func MIN(column string) string {
+	return SimpleFunction("MIN", column)
+}
+
+// MAX Renders SQL MAX of the expresion in column
+func MAX(column string) string {
+	return SimpleFunction("MAX", column)
+}
+
+// SUM Renders SQL SUM of the expresion in column
+func SUM(column string) string {
+	return SimpleFunction("SUM", column)
+}
+
 // TablePrefix returns a function that prefixes column names with the passed table name.
 func TablePrefix(n string) func(string) string {
 	if n == "" {

@@ -221,7 +221,7 @@ func (ec *ExpresionChain) Delete() *ExpresionChain {
 	return ec
 }
 
-// Conflict will add a "ON CONFLICT" clause at the end of the query if the main operation
+// OnConflict will add a "ON CONFLICT" clause at the end of the query if the main operation
 // is an INSERT.
 func (ec *ExpresionChain) OnConflict(clause func(*OnConflict)) *ExpresionChain {
 	if ec.conflict != nil {
