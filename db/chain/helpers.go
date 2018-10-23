@@ -14,7 +14,10 @@
 
 package chain
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	// NullValue represents the NULL value in SQL
@@ -64,6 +67,39 @@ func TablePrefix(n string) func(string) string {
 	return func(c string) string {
 		return fmt.Sprintf("%s.%s", n, c)
 	}
+}
+
+// ColumnGroup returns a list of columns, comma separated and between parenthesis.
+func ColumnGroup(columns ...string) string {
+	return fmt.Sprintf("(%s)", strings.Join(columns, ", "))
+}
+
+// AndConditions returns a list of conditions separated by AND
+func AndConditions(conditions ...string) string {
+	return strings.Join(conditions, " AND ")
+}
+
+// CompOperator represents a possible operator to compare two SQL expresions
+type CompOperator string
+
+var (
+	// Eq is the = operand
+	Eq CompOperator = "="
+	// Neq is the != operand
+	Neq CompOperator = "!="
+	// Gt is the > operand
+	Gt CompOperator = ">"
+	// GtE is the >= operand
+	GtE CompOperator = ">="
+	// Lt is the < operand
+	Lt CompOperator = "<"
+	// LtE is the <= operand
+	LtE CompOperator = "<="
+)
+
+// CompareExpresions returns a comparision between two SQL expresions using operator
+func CompareExpresions(operator CompOperator, columnLeft, columnRight string) string {
+	return fmt.Sprintf("%s %s %s", columnLeft, operator, columnRight)
 }
 
 // NillableString returns a safely dereferenced string from it's pointer.
@@ -141,6 +177,12 @@ func LesserOrEqualThan(field string) string {
 
 // In is a convenience function to enable use of go for where definitions
 func In(field string, value ...interface{}) (string, []interface{}) {
+	return fmt.Sprintf("%s IN (?)", field), value
+}
+
+// InSlice is a convenience function to enable use of go for where definitions and assumes the
+// passed value is already a slice.
+func InSlice(field string, value interface{}) (string, interface{}) {
 	return fmt.Sprintf("%s IN (?)", field), value
 }
 
