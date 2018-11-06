@@ -57,6 +57,59 @@ func SUM(column string) string {
 	return SimpleFunction("SUM", column)
 }
 
+// Function represents a SQL function.
+type Function interface {
+	// Static adds an argument to the function
+	Static(string) Function
+	// Parametric adds a placeholder and an argument to the function
+	Parametric(interface{}) Function
+	// Fn returns the rendered statemtn and list of arguments.
+	Fn() (string, []interface{})
+	// FnSelect returns a SelectArgument from this function
+	FnSelect() SelectArgument
+}
+
+type complexFunction struct {
+	name          string
+	argumentItems []interface{}
+	arguments     []string
+}
+
+// Static implements Function
+func (cf *complexFunction) Static(field string) Function {
+	cf.arguments = append(cf.arguments, field)
+	return cf
+}
+
+// Parametric implements Function
+func (cf *complexFunction) Parametric(arg interface{}) Function {
+	cf.arguments = append(cf.arguments, "?")
+	cf.argumentItems = append(cf.argumentItems, arg)
+	return cf
+}
+
+// Fn implements Function
+func (cf *complexFunction) Fn() (string, []interface{}) {
+	return fmt.Sprintf("%s(%s)", cf.name, strings.Join(cf.arguments, ", ")), cf.argumentItems
+}
+
+// FnSelect implements Function
+func (cf *complexFunction) FnSelect() SelectArgument {
+	return SelectArgument{
+		Field: fmt.Sprintf("%s(%s)", cf.name, strings.Join(cf.arguments, ", ")),
+		Args:  cf.argumentItems,
+	}
+}
+
+// ComplexFunction constructs a complexFunction
+func ComplexFunction(name string) Function {
+	return &complexFunction{
+		name:          name,
+		argumentItems: []interface{}{},
+		arguments:     []string{},
+	}
+}
+
 // TablePrefix returns a function that prefixes column names with the passed table name.
 func TablePrefix(n string) func(string) string {
 	if n == "" {

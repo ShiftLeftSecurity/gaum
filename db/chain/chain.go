@@ -211,6 +211,39 @@ func (ec *ExpresionChain) Select(fields ...string) *ExpresionChain {
 	return ec
 }
 
+// SelectArgument contains the components of a select column
+type SelectArgument struct {
+	Field string
+	as    string
+	Args  []interface{}
+}
+
+// As aliases the argument
+func (s SelectArgument) As(alias string) SelectArgument {
+	s.as = alias
+	return s
+}
+
+// SelectWithArgs set fields to be returned by the final query.
+func (ec *ExpresionChain) SelectWithArgs(fields ...SelectArgument) *ExpresionChain {
+	var statements = make([]string, len(fields), len(fields))
+	var args = []interface{}{}
+	for i, v := range fields {
+		if v.as != "" {
+			v.Field = As(v.Field, v.as)
+		}
+		statements[i] = v.Field
+		args = append(args, v.Args...)
+	}
+	ec.mainOperation = &querySegmentAtom{
+		segment:   sqlSelect,
+		expresion: strings.Join(statements, ", "),
+		arguments: args,
+		sqlBool:   SQLNothing,
+	}
+	return ec
+}
+
 // Delete determines a deletion will be made with the results of the query.
 func (ec *ExpresionChain) Delete() *ExpresionChain {
 	ec.mainOperation = &querySegmentAtom{
@@ -767,6 +800,9 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 			return "", nil, errors.Errorf("no table specified for this query")
 		}
 		query += fmt.Sprintf(" FROM %s", ec.table)
+		if len(ec.mainOperation.arguments) != 0 {
+			args = append(args, ec.mainOperation.arguments...)
+		}
 
 	}
 	if ec.mainOperation.segment == sqlSelect ||
