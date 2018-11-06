@@ -798,7 +798,8 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		// FROM
 		if ec.table == "" && ec.mainOperation.segment == sqlDelete {
 			return "", nil, errors.Errorf("no table specified for this query")
-		} else {
+		}
+		if ec.table != "" {
 			query += fmt.Sprintf(" FROM %s", ec.table)
 		}
 		if len(ec.mainOperation.arguments) != 0 {
