@@ -86,16 +86,26 @@ type DB interface {
 	Clone() DB
 	// QueryIter returns closure allowing to load/fetch roads one by one.
 	QueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
+	// EQueryIter is QueryIter but will use EscapeArgs.
+	EQueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
 	// Query returns a closure that allows fetching of the results of the query.
 	Query(statement string, fields []string, args ...interface{}) (ResultFetch, error)
+	// EQuery is Query but will use EscapeArgs.
+	EQuery(statement string, fields []string, args ...interface{}) (ResultFetch, error)
 	// QueryPrimitives returns a closure that allows fetching of the results of a query to a
 	// slice of primitives.
 	QueryPrimitive(statement string, field string, args ...interface{}) (ResultFetch, error)
+	// EQueryPrimitive is QueryPrimitive but will use EscapeArgs
+	EQueryPrimitive(statement string, field string, args ...interface{}) (ResultFetch, error)
 	// Raw ins intended to be an all raw query that runs statement with args and tries
 	// to retrieve the results into fields without much magic whatsoever.
 	Raw(statement string, args []interface{}, fields ...interface{}) error
+	// ERaw is Raw but will use EscapeArgs
+	ERaw(statement string, args []interface{}, fields ...interface{}) error
 	// Exec is intended for queries that do not yield results (data modifiers)
 	Exec(statement string, args ...interface{}) error
+	// EExec is Exec but will use EscapeArgs.
+	EExec(statement string, args ...interface{}) error
 	// BeginTransaction returns a new DB that will use the transaction instead of the basic conn.
 	BeginTransaction() (DB, error)
 	// CommitTransaction commits the transaction

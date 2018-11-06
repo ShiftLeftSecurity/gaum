@@ -165,6 +165,15 @@ func snakesToCamels(s string) string {
 	return c
 }
 
+// EQueryIter Calls EscapeArgs before invoking QueryIter
+func (d *DB) EQueryIter(statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
+	s, a, err := connection.EscapeArgs(statement, args)
+	if err != nil {
+		return nil, errors.Wrap(err, "escaping arguments")
+	}
+	return d.QueryIter(s, fields, a)
+}
+
 // QueryIter returns an iterator that can be used to fetch results one by one, beware this holds
 // the connection until fetching is done.
 // the passed fields are supposed to correspond to the fields being brought from the db, no
@@ -228,6 +237,15 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 	}, nil
 }
 
+// EQueryPrimitive calls EscapeArgs before invoking QueryPrimitive.
+func (d *DB) EQueryPrimitive(statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
+	s, a, err := connection.EscapeArgs(statement, args)
+	if err != nil {
+		return nil, errors.Wrap(err, "escaping arguments")
+	}
+	return d.QueryPrimitive(s, field, a)
+}
+
 // QueryPrimitive returns a function that allowss recovering the results of the query but to a slice
 // of a primitive type, only allowed if the query fetches one field.
 func (d *DB) QueryPrimitive(statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
@@ -282,6 +300,15 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 		}
 		return nil
 	}, nil
+}
+
+// EQuery calls EscapeArgs before invoking Query
+func (d *DB) EQuery(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
+	s, a, err := connection.EscapeArgs(statement, args)
+	if err != nil {
+		return nil, errors.Wrap(err, "escaping arguments")
+	}
+	return d.Query(s, fields, a)
 }
 
 // Query returns a function that allows recovering the results of the query, beware the connection
@@ -364,6 +391,15 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 	}, nil
 }
 
+// ERaw calls EscapeArgs before invoking Raw
+func (d *DB) ERaw(statement string, args []interface{}, fields ...interface{}) error {
+	s, a, err := connection.EscapeArgs(statement, args)
+	if err != nil {
+		return errors.Wrap(err, "escaping arguments")
+	}
+	return d.Raw(s, a, fields)
+}
+
 // Raw will run the passed statement with the passed args and scan the first resul, if any,
 // to the passed fields.
 func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) error {
@@ -398,6 +434,15 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 		return errors.Wrap(err, "scanning values into recipient")
 	}
 	return nil
+}
+
+// EExec calls EscapeArgs before invoking Exec
+func (d *DB) EExec(statement string, args ...interface{}) error {
+	s, a, err := connection.EscapeArgs(statement, args)
+	if err != nil {
+		return errors.Wrap(err, "escaping arguments")
+	}
+	return d.Exec(s, a)
 }
 
 // Exec will run the statement and expect nothing in return.
