@@ -10,103 +10,135 @@ This library is, as it's name indicates, a bare minimum. It is not a "drop in" r
 
 How to use it, there are two components that can be used separately:
 
- * [The DB connector](#db)
- * [The Chain](#chain)
+ * [The DB connector](#db): Which allows interaction with the underlying DB, it adds almost nothing to the underlying API but some minor level of magic when fetching the data and a set of helpers to convert from the more practical `?` argument placeholders to the numbered positionals required by the DB `$1, $2,....` with a few convenient expansions like making `(?)` into `($1...n)` based on the passed arguments (with limitations).
+ * [The Chain](#chain): Provides a set of convenience functions and methods that allows chaning and combining to produce a struct that can render itself into a consistent SQL query (the promise is that the same object renders itself into the same SQL object each)
 
  ## DB
  
- **Note** all the examples in this doc are using the [postgres](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres) driver because it is the itch I am scratching, I do not intend to write other drivers and most of the code will be strongly opinionated towards postgres, this said, if someone else feels like writing different drivers I'll gladly accept PRs
+ **Note** all the examples in this doc are using the [postgres](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres) driver because it is the itch I am scratching, along with it we provide a [standard](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq) postgres driver, which can be used if you hit a limitation in the other one (which we did), I do not intend to write other drivers and most of the code will be strongly opinionated towards postgres, this said, if someone else feels like writing different drivers I'll gladly accept PRs
  
- The [**DB**](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DB) component provides a set of convenience functions that allow querying and executing statements in the db and retrieving the results if any.
+ As stated above, the [**DB**](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DB) component provides a set of convenience functions that allow querying and executing statements in the db and retrieving the results if any with slightlty less friction than the bare bones functions.
  
  To first open a connection we will need an instance of [`connection.DatabaseHandler`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DatabaseHandler) and invoke the `Open` method.
  
- ### DatabaseHandler.[Open](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DatabaseHandler) ([postgres flavor](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#Connector.Open))
+ ### DatabaseHandler.[Open](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DatabaseHandler) ([postgrespq flavor](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#Connector.Open))
  
  Open creates a db connection pool and returns a [`connection.DB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#DB) object containing it. By default it uses a pool, once again, because I have no use for single connection.
  
- ```golang
- // imports used
- // "github.com/ShiftLeftSecurity/gaum/db/connection"
- // "github.com/ShiftLeftSecurity/gaum/db/postgres"
+```golang
+// imports used
+// "github.com/ShiftLeftSecurity/gaum/db/connection"
+// "github.com/ShiftLeftSecurity/gaum/db/postgrespq"
+// "github.com/ShiftLeftSecurity/gaum/db/logging"
  
- var connector connection.DatabaseHandler
- 
- connector = postgres.Connector{
-		ConnectionString: "a connection string",
-	}
- 
- db, err := connector.Open(
-		&connection.Information{
-			Host:             "127.0.0.1",
-			Port:             5432,
-			Database:         "postgres",
-			User:             "postgres",
-			Password:         "mysecretpassword",
-			MaxConnPoolConns: 10,
-			Logger:           goLoggerWrapped,
-		},
-	)
+var connector connection.DatabaseHandler
+
+// This uses Postgres PQ driver, which is the standard sql driver for postgres, you can use
+// pgx one for a bit of efficiency increase in some aspects but outcome is not always guaranteed
+// as we use PQ for real life testing (automated tests use both)
+connector = postgrespq.Connector{
+	ConnectionString: "a connection string",
+}
+
+// Wrappers are provider for go standard logging and testging t.Log but build more is trivial
+// and can be pretty much cargo culted from the existing one.
+logger := logging.NewGoLogger(standardgologger)
+
+maxConnLifetime := 1 * time.Minute
+
+dbConnection, err := gaumConnector.Open(&connection.Information{
+	Logger:          logger,
+	// For production `Error` is the recommended logging level as the driver and the underlying
+	// library are quite chatty.
+	LogLevel:        connection.Error,
+	// You can omit this if you don't have special db requirements, most uses should be ok
+	// with default but we provide just in case.
+	// Side note: this only works with PQ driver.
+	ConnMaxLifetime: &maxConnLifetime,
+	// This is possible but rarely necessary, I just added the example in case you hit one of
+	// the corner cases which require it.
+	CustomDial: func(network, addr string) (net.Conn, error) {
+		d := &net.Dialer{
+			KeepAlive: time.Minute,
+		}
+		return d.Dial(network, addr)
+	},
+	// Most of these can be provided as the ConnectionString when instantiating the connector
+	Host:             "127.0.0.1",
+	Port:             5432,
+	Database:         "postgres",
+	User:             "postgres",
+	Password:         "mysecretpassword",
+	MaxConnPoolConns: 10,
+})
+
+if err != nil {
+	// do something
+}
+	
 ```
 The connection string is enough to open a connection but if `Open` receives a non nil parameter the overlapping parameters will be taken from the `connection.Information` in the `Open` invocation.
 
 The [Information](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#Information) struct contains most of the possible data one can use for a connection, strongly biased to postgres.
 
-The only note worthy item on the above example is `goLoggerWrapped` which is an instance of [`logging.Logger`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#Logger) which is basically an Interface for logging that I consider sane enough and that I in turn addapt to what [`pgx`](https://godoc.org/github.com/jackc/pgx) takes.
+A note about the `logger` object passed to `Open`, its an instance of [`logging.Logger`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#Logger) which is basically an Interface for logging that I consider sane enough and that I in turn addapt to what [`pgx`](https://godoc.org/github.com/jackc/pgx) takes.
 
-For ease of use I provide [a wrapper](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#NewGoLogger) for the standard [go log](https://godoc.org/log#Logger).
+For ease of use, as stated in this example [a wrapper](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#NewGoLogger) for the standard [go log](https://godoc.org/log#Logger) is provided.
+For testing purposes, [another wrapper](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#NewGoTestingLoggerr) is provided that wraps on the `*testing.T` object to facilitate testing info.
 
-### DB.Clone
+### Some of the items in DB
+
+#### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[Clone](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.Clone)
 
 DB.Clone returns a deep copy of the db.
 
-### [EscapeArgs](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#EscapeArgs)
+#### [EscapeArgs](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connection#EscapeArgs)
 
-EscapeArgs is in the wrong place in the code, but will do for now. This is something to be known before any querying function. To avoid the hassle of having to put `$<argnumber>` in each query argument placeholder, I have taken the convenience gorm provides and allow to use `?` as the placeholder. To allow for our lazy side to take over, we need to invoke EscapeArgs on the query and args to both check for number of arg consistency and properly escape the placeholders before calling any of the queries.
+EscapeArgs is in the wrong place in the code, but will do for now. This is something to be known before any querying function. To avoid the hassle of having to put `$<argnumber>` in each query argument placeholder, the convenience gorm provides was taken and it's possible to use `?` as a placeholder. To allow for our lazy side to take over, we need to invoke EscapeArgs on the query and args to both check for number of arg consistency and properly escape the placeholders before calling any of the queries, now for all of these functions, there is also another with the same name provided with an `E` prepend that invokes [EscapeArgs](#escapeargs) for you.
 
-### DB.[QueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.QueryIter)
+#### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[EQueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.EQueryIter)
 
-See [EscapeArgs](#escapeargs)
+( See [EscapeArgs](#escapeargs) And [QueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.QueryIter) )
 
-QueryIter will execute the query and return a closure that holds the cursor. Calling the returned closure produces advancement of the cursor, one can pass the pointer to a struct that one wants populated. The rules for populating a struct are made from the passed list of fields (containing the column names to be fetched in the query, beware no consistency is checked until query time and by then all will go boom or you will be missing data) there will be snake to camel case conversion and matching that to the struct member name (or the contents of `gaum:"field_name:something"`). If no fields are specified we will make a query to the db to ask for a description of the fields returned, try not to let that happen.
+EQueryIter will execute the query and return a closure that holds the cursor. Calling the returned closure produces advancement of the cursor, one can pass the pointer to a struct that one wants populated. The rules for populating a struct are made from the passed list of fields (containing the column names to be fetched in the query, beware no consistency is checked until query time and by then all will go boom or you will be missing data) there will be snake to camel case conversion and matching that to the struct member name (or the contents of `gaum:"field_name:something"`). If no fields are specified we will make a query to the db to ask for a description of the fields returned, try not to let that happen as it requires extra roundtrips and adds uncertainty.
 
 Ideally this and all other queries will be used through chain that will take care of the ugly parts.
 
 **Note**: this WILL hold a connection from the pool until you either invoke `close()` function returned in each iteration or deplete results, a timer option is planned but don't hold your breath.
 
-### DB.[Query](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.Query)
+#### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[EQuery](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.EQuery)
 
-See [EscapeArgs](#escapeargs)
+(See [EscapeArgs](#escapeargs) And [Query](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.Query) )
 
-Query will return a closure, similar to `QueryIter` but it will take a slice only since it will fetch all the results in one call and populate the slice. The rest of the behavior is the same.
-
-**Note**: this WILL hold a connection from the pool until you either invoke `close()` function returned or run the closure, a timer option is planned but don't hold your breath.
-
-
-### DB.[QueryPrimitive](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.QueryPrimitive)
-
-See [EscapeArgs](#escapeargs)
-
-QueryPrimitive will return a closure, similar to `Query` but it will take a slice of primitives, for this the select statement must contain only one field specified or the query will fail before even executing. The rest of the behavior is the same.
+EQuery will return a closure, similar to `QueryIter` but it will take a slice pointer (sorry, reflection) only since it will fetch all the results in one call and populate the slice. The rest of the behavior is the same.
 
 **Note**: this WILL hold a connection from the pool until you either invoke `close()` function returned or run the closure, a timer option is planned but don't hold your breath.
 
-### DB.[Raw](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.Raw)
 
-See [EscapeArgs](#escapeargs)
+#### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[EQueryPrimitive](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.EQueryPrimitive)
 
-Raw will run the passed query with the passed arguments and try to fetch the resulting row into the passed pointer receivers, this will do for one row only and you have to be careful to pass enough receivers for the fields you are querying and no more.
+( See [EscapeArgs](#escapeargs) And [QueryPrimitive](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.QueryPrimitive) )
+
+QueryPrimitive will return a closure, similar to `Query` but it will take a pointer to slice of primitives, for this the `SELECT` statement **must** return only one column or the query will fail before even executing. The rest of the behavior is the same.
+
+**Note**: this WILL hold a connection from the pool until you either invoke `close()` function returned or run the closure, a timer option is planned but don't hold your breath.
+
+#### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[ERaw](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.ERaw)
+
+( See [EscapeArgs](#escapeargs) And [Raw](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.Raw) )
+
+Raw will run the passed query with the passed arguments and try to fetch the resulting row into the passed pointer receivers, this will do for one row only and you have to be careful to pass enough (and properly typed, [see sql.Scanner](https://golang.org/pkg/database/sql/#Scanner) ) receivers for the fields you are querying and no more.
 
 
-### DB.[Exec](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.Exec)
+#### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[EExec](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.EExec)
 
-See [EscapeArgs](#escapeargs)
+( See [EscapeArgs](#escapeargs) And [Exec](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.Exec) )
 
-Exec is intended for queries that do not return results such as... well anything that is not a  `SELECT` you just pass the query and the arguments.
+Exec is intended for queries that do not return results such as... well anything that is not a `SELECT` (and sometimes `SELECT` if you do not expect results, such as when invoking a stored procedure) you just pass the query and the arguments.
 
 ### Transactions
 
-Transactions are fairly simple. `DB` offers [`BeginTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#DB.BeginTransaction) that returns a disposable `DB` object whose life extends only to the boundary of the transaction and will end when you either [`RollbackTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#RollbackTransaction) or [`CommitTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#CommitTransaction). These things are idempotent so if you call Begin on a transaction nothing bad happens and equally if you call Rollback or Commit on a non transaction. To know if your db is a transaction use [`IsTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgres#IsTransaction)
+Transactions are fairly simple. [`DB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB) offers [`BeginTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.BeginTransaction) that returns a disposable [`DB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB) object whose life extends only to the boundary of the transaction and will end when you either [`RollbackTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#RollbackTransaction) or [`CommitTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#CommitTransaction). These things are idempotent so if you call Begin on a transaction nothing bad happens and equally if you call Rollback or Commit on a non transaction. To know if your db is a transaction use [`IsTransaction`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#IsTransaction)
 
 ### DB.BulkInsert
 
@@ -125,6 +157,60 @@ Crafting the SQL is made by just calling the corresponding methods for the SQL w
 [The main reference](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain)
 
 ### Composing
+
+#### Chain Helpers
+
+Before the actual statements, let's see some of the helpers available so the crafting of complete SQL is easier.
+
+##### [TablePrefix](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#TablePrefix)
+
+Table prefix returns a function that when invoked with a string as parameter returns the passed in string namespaced with the construcing table name.
+
+```golang
+tn := chain.TablePrefix("TableName")
+tn("column") // -> "TableName.column
+```
+
+#### [SimpleFunction](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#SimpleFunction)
+
+Simple Function allows to craft a simple function call that takes a column or constant as parameter, ideally you will use to construct totalization functions, for
+convenience we provide some of the basic ones (check to see if he one you need is there already, we add more when we need) at the time of writing this we had:
+
+* [AVG](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#AVG)
+* [MIN](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#MIN)
+* [MAX](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#MAX)
+* [COUNT](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#COUNT)
+* [SUM](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#SUM)
+
+```golang
+chain.AVG("colum") // -> AVG(column)
+
+MyCustomFunction := func(column string) string { 
+	return chain.SimpleFunction("MyCustomFunction", column)
+}
+MyCustomFunction("acolumn") // -> MyCustomFunction(acolumn)
+
+AnotherFN := func(columns ...string) string {
+	return chain.SimpleFunction("AnotherFn", strings.Join(columns, ","))
+}
+AnotherFN("one", "two", "three") // -> AnotherFn(one, two, three)
+```
+
+#### [ComplexFunction](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ComplexFunction)
+
+Complex Function returns, much like Simple function, a struct that allows chain calling of arguments to construct
+a function that takes both static (columns, constants, etc) parameters and external ones (which will be passed as positional
+to the query in the form `func($1, $2..., $n)` with separated args for safety)
+
+```golang
+c := ComplexFunction("afn")
+something := 1
+c.Static("column").Static("column2").Parametric(something)
+c.Fn() // -> afn(column, column2, ?) // []interface{}{1}
+// For the next, see `chain.SelectWithArgs`
+c.FnSelect() // -> SelectArgument { Field: "afn(column, column2, ?)", Args: []interface{}{1} }
+```
+
 #### Select
 
 ```golang
