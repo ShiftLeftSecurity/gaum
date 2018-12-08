@@ -29,6 +29,18 @@ const (
 	space       = ' '
 )
 
+// FieldsFromSelect returns a list of field names based on the columns of a select statement
+// or error if it's unable to extract them.
+func FieldsFromSelect(statement string) ([]string, error) {
+	s := &SelectParser{Statement: statement}
+	s.splitFields()
+	err := s.extractNames()
+	if err != nil {
+		return nil, errors.Wrapf(err, "extracting column names from %q", statement)
+	}
+	return s.ColumnNames, nil
+}
+
 // SelectParser contains the fields part of a SQL SELECT Statement and
 // its parsed columns and respectives names and encapsulates the ability
 // to produce said parsed data.
