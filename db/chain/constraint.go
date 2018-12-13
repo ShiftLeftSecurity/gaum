@@ -39,6 +39,14 @@ func (o *OnConflict) OnColumn(args ...string) *OnConflictAction {
 	return o.action
 }
 
+// DoNothing terminates the `ON CONFLICT` chain the conflict target is
+// optional for this action.
+func (o *OnConflict) DoNothing() {
+	o.prefix = ""
+	o.action = &OnConflictAction{}
+	o.action.DoNothing()
+}
+
 // OnConflictAction is used to limit developer actions
 type OnConflictAction struct {
 	phrase       string
@@ -142,7 +150,6 @@ func (o *OnConflict) render() (string, []interface{}) {
 
 	// return early if there is nothing to do
 	if o == nil ||
-		o.prefix == "" ||
 		o.action == nil ||
 		o.action.phrase == "" {
 		return "", nil
@@ -150,9 +157,11 @@ func (o *OnConflict) render() (string, []interface{}) {
 
 	// start building output
 	var outputArgs []interface{}
-	formatOutput := []string{
-		"ON", "CONFLICT", o.prefix, o.action.phrase,
+	formatOutput := []string{"ON", "CONFLICT"}
+	if o.prefix != "" {
+		formatOutput = append(formatOutput, o.prefix)
 	}
+	formatOutput = append(formatOutput, o.action.phrase)
 
 	// collect args
 	var localArgs []string

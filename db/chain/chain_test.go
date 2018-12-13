@@ -38,16 +38,6 @@ func TestExpresionChain_Render(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name: "basic selection without table",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
-				AndWhere("field1 > ?", 1).
-				AndWhere("field2 = ?", 2).
-				AndWhere("field3 > ?", "pajarito"),
-			want:     "",
-			wantArgs: nil,
-			wantErr:  true,
-		},
-		{
 			name: "basic selection with where",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
@@ -167,6 +157,18 @@ func TestExpresionChain_Render(t *testing.T) {
 					c.OnConstraint("id").DoNothing()
 				}),
 			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
+			wantArgs: []interface{}{"value1", 2, "blah"},
+			wantErr:  false,
+		},
+		{
+			name: "basic insert with default conflict",
+			chain: (&ExpresionChain{}).
+				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+				Table("convenient_table").
+				OnConflict(func(c *OnConflict) {
+					c.DoNothing()
+				}),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
 			wantArgs: []interface{}{"value1", 2, "blah"},
 			wantErr:  false,
 		},
