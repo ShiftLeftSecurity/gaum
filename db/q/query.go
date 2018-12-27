@@ -109,6 +109,7 @@ func RawExec(db connection.DB, query string, args ...interface{}) error {
 // in <driver> and with the passed in <logger> and <logLevel> set.
 // If you want more customization into your DB connection please refer to the documentation for
 // `connection.DB` and `connection.Information` and the respective drivers:
+//
 // * github.com/ShiftLeftSecurity/gaum/db/postgres
 // * github.com/ShiftLeftSecurity/gaum/db/postgrespq
 func NewDB(connectionString string, driver Driver,
@@ -261,6 +262,7 @@ func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
 }
 
 // AndWhere adds a `WHERE` condition section that can be:
+//
 // * The first one (decided in arbitrary way among all `AndWhere` expresions)
 // * One of many that will be pre-pend by `AND` if it's not the first
 // * The only condition.
@@ -275,6 +277,7 @@ func (q *Q) AndWhere(expr string, args ...interface{}) *Q {
 }
 
 // OrWhere adds a `WHERE` condition section that can be:
+//
 // * The first one if no `AndWhere` was invoked
 // * One of many that will be pre-pend by `OR` if it's not the first
 // * The only condition (although convention dictates that you use `AndWhere` in this case).
@@ -336,6 +339,7 @@ func (q *Q) Returning(args ...string) *Q {
 // conjunction with `.Limit(1)` or in queries that are not expected to return more than one
 // value since the underlying query Will be executed infull but just one result will be
 // retrieved before dropping the result set.
+//
 // <receiver> must be of a type that supports de-serialization of all columns into it.
 // This works with `SELECT` and `INSERT INTO ... RETURNING ...`
 func (q *Q) QueryOne(receiver interface{}) error {
@@ -353,6 +357,7 @@ func (q *Q) QueryOne(receiver interface{}) error {
 
 // QueryMany executes and fetches all results from a query into <receiverSlice> which is
 // expected to be a slice of a type that supports de-serialization of all columns into it.
+//
 // This works with `SELECT` and `INSERT INTO ... RETURNING ...`
 func (q *Q) QueryMany(receiverSlice interface{}) error {
 	fetcher, err := q.query.Query()
