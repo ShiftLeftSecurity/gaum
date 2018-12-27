@@ -62,6 +62,11 @@ func (ec *ExpresionChain) NewDB(db connection.DB) *ExpresionChain {
 	return ec
 }
 
+// DB returns the chain DB
+func (ec *ExpresionChain) DB() connection.DB {
+	return ec.db
+}
+
 // Clone returns a copy of the ExpresionChain
 func (ec *ExpresionChain) Clone() *ExpresionChain {
 	var limit *querySegmentAtom
@@ -536,10 +541,10 @@ func extract(ec *ExpresionChain, seg sqlSegment) []querySegmentAtom {
 	return qs
 }
 
-// marks to placeholder replaces `?` in the query with `$1` style placeholders, this must be
+// MarksToPlaceholders replaces `?` in the query with `$1` style placeholders, this must be
 // done with a finished query and requires the args as they depend on the position of the
 // already rendered query, it does some consistency control and finally expands `(?)`.
-func marksToPlaceholders(q string, args []interface{}) (string, []interface{}, error) {
+func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, error) {
 
 	// assume a nill pointer is a null
 	// this is hacky, but it should work
@@ -642,7 +647,7 @@ func (ec *ExpresionChain) renderInsert(raw bool) (string, []interface{}, error) 
 
 	if !raw {
 		var err error
-		query, args, err = marksToPlaceholders(query, args)
+		query, args, err = MarksToPlaceholders(query, args)
 		if err != nil {
 			return "", nil, errors.Wrap(err, "rendering insert")
 		}
@@ -701,7 +706,7 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 
 	if !raw {
 		var err error
-		query, args, err = marksToPlaceholders(query, args)
+		query, args, err = MarksToPlaceholders(query, args)
 		if err != nil {
 			return "", nil, errors.Wrap(err, "rendering insert multi")
 		}
@@ -889,7 +894,7 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 
 	if !raw {
 		var err error
-		query, args, err = marksToPlaceholders(query, args)
+		query, args, err = MarksToPlaceholders(query, args)
 		if err != nil {
 			return "", nil, errors.Wrap(err, "rendering query")
 		}
