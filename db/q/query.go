@@ -12,12 +12,13 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-// Package q provides a simple way to interact with a DataBase and craft queryes using gaum
-// through the Q struct and its helpers you can use most of gaum feature in a simple and
-// intuitive way that somehow is reminiscent of some go ORMs.
-// This package API might change overtime given that is being created from ux feedback
-// from our users.
-
+/*
+Package q provides a simple way to interact with a DataBase and craft queryes using gaum
+through the Q struct and its helpers you can use most of gaum feature in a simple and
+intuitive way that somehow is reminiscent of some go ORMs.
+This package API might change overtime given that is being created from ux feedback
+from our users.
+*/
 package q
 
 import (
