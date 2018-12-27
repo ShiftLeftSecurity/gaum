@@ -261,9 +261,9 @@ func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
 }
 
 // AndWhere adds a `WHERE` condition section that can be:
-// 	* The first one (decided in arbitrary way among all `AndWhere` expresions)
-// 	* One of many that will be pre-pend by `AND` if it's not the first
-// 	* The only condition.
+// * The first one (decided in arbitrary way among all `AndWhere` expresions)
+// * One of many that will be pre-pend by `AND` if it's not the first
+// * The only condition.
 //
 // you might pass anything that is valid within a `WHERE` condition as expression, even a group
 // of conditions separated by AND/OR in plain text.
@@ -275,9 +275,9 @@ func (q *Q) AndWhere(expr string, args ...interface{}) *Q {
 }
 
 // OrWhere adds a `WHERE` condition section that can be:
-// 	* The first one if no `AndWhere` was invoked
-// 	* One of many that will be pre-pend by `OR` if it's not the first
-// 	* The only condition (although convention dictates that you use `AndWhere` in this case).
+// * The first one if no `AndWhere` was invoked
+// * One of many that will be pre-pend by `OR` if it's not the first
+// * The only condition (although convention dictates that you use `AndWhere` in this case).
 //
 // you might pass anything that is valid within a `WHERE` condition as expression, even a group
 // of conditions separated by AND/OR in plain text.
