@@ -17,7 +17,8 @@ package chain
 import (
 	"fmt"
 	"regexp"
-	"strings"
+
+	"github.com/ShiftLeftSecurity/gaum/selectparse"
 )
 
 type sqlBool string
@@ -99,28 +100,12 @@ var nonFields = []struct {
 func (q *querySegmentAtom) fields() []string {
 	fields := []string{}
 	if q.segment == sqlSelect {
-		expr := strings.ToLower(q.expresion)
-		for _, nf := range nonFields {
-			expr = string(nf.re.ReplaceAll([]byte(expr), nf.replace))
-			if nf.re.Match([]byte(expr)) { // account for nested expressions
-				expr = string(nf.re.ReplaceAll([]byte(expr), nf.replace))
-			}
-		}
-		rawFields := strings.Split(expr, ",")
-		for _, field := range rawFields {
-			field = strings.ToLower(field)
-			field := strings.TrimRight(strings.TrimLeft(field, " "), " ")
-			fieldParts := strings.Split(field, " as ")
-			fieldName := fieldParts[len(fieldParts)-1]
-			fieldName = strings.TrimRight(strings.TrimLeft(fieldName, " "), " ")
-			if strings.Index(fieldName, ".") > -1 {
-				fieldParts = strings.Split(fieldName, ".")
-				fieldName = fieldParts[len(fieldParts)-1]
-			}
-			if fieldName == "" {
-				continue
-			}
-			fields = append(fields, fieldName)
+		var err error
+		fields, err = selectparse.FieldsFromSelect(q.expresion)
+		if err != nil {
+			// We do not have a case for errors here since missing fields will just
+			// prompt the DB for the columns
+			return []string{}
 		}
 	}
 	// TODO make UPDATE and INSERT for completion's sake
