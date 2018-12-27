@@ -111,6 +111,7 @@ func RawExec(db connection.DB, query string, args ...interface{}) error {
 // `connection.DB` and `connection.Information` and the respective drivers:
 //
 // * github.com/ShiftLeftSecurity/gaum/db/postgres
+//
 // * github.com/ShiftLeftSecurity/gaum/db/postgrespq
 func NewDB(connectionString string, driver Driver,
 	logger logging.Logger, logLevel connection.LogLevel) (connection.DB, error) {
@@ -264,7 +265,9 @@ func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
 // AndWhere adds a `WHERE` condition section that can be:
 //
 // * The first one (decided in arbitrary way among all `AndWhere` expresions)
+//
 // * One of many that will be pre-pend by `AND` if it's not the first
+//
 // * The only condition.
 //
 // you might pass anything that is valid within a `WHERE` condition as expression, even a group
@@ -279,7 +282,9 @@ func (q *Q) AndWhere(expr string, args ...interface{}) *Q {
 // OrWhere adds a `WHERE` condition section that can be:
 //
 // * The first one if no `AndWhere` was invoked
+//
 // * One of many that will be pre-pend by `OR` if it's not the first
+//
 // * The only condition (although convention dictates that you use `AndWhere` in this case).
 //
 // you might pass anything that is valid within a `WHERE` condition as expression, even a group
