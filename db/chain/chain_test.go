@@ -106,6 +106,16 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic selection with not / like",
+			chain: (&ExpresionChain{}).Select("field1", "field2").
+				Table("convenient_table").
+				AndWhere(Like("field1"), "%hello%").
+				AndWhere(NotLike("field2"), "%world%"),
+			want:     "SELECT field1, field2 FROM convenient_table WHERE field1 LIKE $1 AND field2 NOT LIKE $2",
+			wantArgs: []interface{}{"%hello%", "%world%"},
+			wantErr:  false,
+		},
+		{
 			name: "basic deletion with where and join",
 			chain: (&ExpresionChain{}).Delete().
 				Table("convenient_table").
