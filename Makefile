@@ -1,4 +1,4 @@
-PSQL := ${PSQL}
+PSQL ?= psql
 export PGPASSWORD="mysecretpassword"
 
 .PHONY: test-postgres
