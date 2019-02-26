@@ -246,14 +246,14 @@ func testConnector_Distinct(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
 	ids := []struct {
-		ID int `gaum:"field_name:id"`
+		ID int `gaum:"field_name:renamed"`
 		Description string `gaum:"field_name:description"`
 	}{}
 
 	// Test Multiple row Iterator
 	query := chain.NewExpresionChain(db)
 	prefix := chain.TablePrefix("justforfun")
-	query.Select(chain.Distinct(prefix("id")), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
+	query.Select(chain.As(chain.Distinct(prefix("id")), "renamed"), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
