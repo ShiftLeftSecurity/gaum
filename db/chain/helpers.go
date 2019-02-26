@@ -196,6 +196,11 @@ func Not(ec *ExpresionChain) *ExpresionChain {
 	return ec
 }
 
+// Allow selection of distinct results only.
+func Distinct(field string) string {
+	return fmt.Sprintf("DISTINCT %s", field)
+}
+
 // As is a convenience function to define column alias in go in order to be a bit less error prone
 // and more go semantic.
 func As(field, alias string) string {
