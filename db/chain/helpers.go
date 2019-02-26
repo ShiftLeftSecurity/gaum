@@ -148,6 +148,10 @@ var (
 	Lt CompOperator = "<"
 	// LtE is the <= operand
 	LtE CompOperator = "<="
+	// Lk is the LIKE operand
+	Lk CompOperator = "LIKE"
+	// NLk is the NOT LIKE operand
+	NLk CompOperator = "NOT LIKE"
 )
 
 // CompareExpresions returns a comparision between two SQL expresions using operator
@@ -192,6 +196,11 @@ func Not(ec *ExpresionChain) *ExpresionChain {
 	return ec
 }
 
+// Allow selection of distinct results only.
+func Distinct(field string) string {
+	return fmt.Sprintf("DISTINCT %s", field)
+}
+
 // As is a convenience function to define column alias in go in order to be a bit less error prone
 // and more go semantic.
 func As(field, alias string) string {
@@ -231,6 +240,16 @@ func LesserOrEqualThan(field string) string {
 // In is a convenience function to enable use of go for where definitions
 func In(field string, value ...interface{}) (string, []interface{}) {
 	return fmt.Sprintf("%s IN (?)", field), value
+}
+
+// Like is a convenience function to enable use of go for where definitions
+func Like(field string) string {
+	return fmt.Sprintf("%s LIKE ?", field)
+}
+
+// NotLike is a convenience function to enable use of go for where definitions
+func NotLike(field string) string {
+	return fmt.Sprintf("%s NOT LIKE ?", field)
 }
 
 // InSlice is a convenience function to enable use of go for where definitions and assumes the
