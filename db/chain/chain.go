@@ -370,9 +370,16 @@ func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionCha
 func (ec *ExpresionChain) UpdateMap(exprMap map[string]interface{}) *ExpresionChain {
 	exprParts := []string{}
 	args := []interface{}{}
-	for k, v := range exprMap {
+	keys := make([]string, len(exprMap))
+	i := 0
+	for k := range exprMap {
+		keys[i] = k
+		i++
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
 		exprParts = append(exprParts, fmt.Sprintf("%s = ?", k))
-		args = append(args, v)
+		args = append(args, exprMap[k])
 	}
 	expr := strings.Join(exprParts, ", ")
 	ec.mainOperation = &querySegmentAtom{
