@@ -98,6 +98,15 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with distinct",
+			chain: (&ExpresionChain{}).Select(Distinct("field1")).
+				Table("convenient_table").
+				AndWhere("field1 > ?", 1),
+			want:     "SELECT DISTINCT field1 FROM convenient_table WHERE field1 > $1",
+			wantArgs: []interface{}{1},
+			wantErr:  false,
+		},
+		{
+			name: "basic selection with distinct as",
 			chain: (&ExpresionChain{}).Select(As(Distinct("field1"), "renamed")).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1),
