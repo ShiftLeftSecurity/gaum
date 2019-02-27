@@ -60,6 +60,10 @@ func TestConnector_Distinct(t *testing.T) {
 	connection_testing.DoTestConnector_Distinct(t, newDB)
 }
 
+func TestConnector_DistinctAs(t *testing.T) {
+	connection_testing.DoTestConnector_DistinctAs(t, newDB)
+}
+
 func TestConnector_Raw(t *testing.T) {
 	connection_testing.DoTestConnector_Raw(t, newDB)
 }

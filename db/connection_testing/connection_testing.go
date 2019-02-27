@@ -47,6 +47,10 @@ func DoTestConnector_Distinct(t *testing.T, newDB NewDB) {
 	testConnector_Distinct(t, newDB)
 }
 
+func DoTestConnector_DistinctAs(t *testing.T, newDB NewDB) {
+	testConnector_DistinctAs(t, newDB)
+}
+
 func DoTestConnector_Raw(t *testing.T, newDB NewDB) {
 	testConnector_Raw(t, newDB)
 }
@@ -246,6 +250,42 @@ func testConnector_Distinct(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
 	ids := []struct {
+		ID int `gaum:"field_name:id"`
+		Description string `gaum:"field_name:description"`
+	}{}
+
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	prefix := chain.TablePrefix("justforfun")
+	query.Select(chain.Distinct(prefix("id")), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
+	fetcher, err := query.Query()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	// Debug print query
+	q, args, err := query.Render()
+	if err != nil {
+		t.Errorf("failed to render: %v", err)
+	}
+	t.Logf("will perform query %q", q)
+	t.Logf("with arguments %#v", args)
+
+	err = fetcher(&ids)
+	if err != nil {
+		t.Errorf("failed to fetch data: %v", err)
+	}
+
+	if len(ids) != 10 {
+		t.Logf("expected 10 results got %d", len(ids))
+		t.FailNow()
+	}
+}
+
+func testConnector_DistinctAs(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+
+	ids := []struct {
 		ID int `gaum:"field_name:renamed"`
 		Description string `gaum:"field_name:description"`
 	}{}
@@ -277,7 +317,6 @@ func testConnector_Distinct(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 }
-
 
 func testConnector_Raw(t *testing.T, newDB NewDB) {
 
