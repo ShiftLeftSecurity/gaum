@@ -1,7 +1,7 @@
-PSQL := ${PSQL}
+PSQL ?= psql
 export PGPASSWORD="mysecretpassword"
 
-.PHONY: test-postgres
+.PHONY: test-postgres-pgx
 test-postgres-pgx: clean-docker
 	docker run --name do_test_gaum -p 5469:5432 -e POSTGRES_PASSWORD=$(PGPASSWORD) -d postgres
 	sleep 3
@@ -10,6 +10,7 @@ test-postgres-pgx: clean-docker
 	docker stop do_test_gaum
 	docker rm do_test_gaum
 
+.PHONY: test-postgres-pq
 test-postgres-pq: clean-docker
 	docker run --name do_test_gaum -p 5469:5432 -e POSTGRES_PASSWORD=$(PGPASSWORD) -d postgres
 	sleep 3

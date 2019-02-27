@@ -189,10 +189,10 @@ func extractFromKeywordsOrFunc(column string) string {
 		buffer = append(buffer, string(r))
 	}
 	if len(buffer) != 0 && depth == 0 {
-		return strings.Trim(strings.Join(buffer, ""), " ")
+		return extractFromSingleWord(strings.Trim(strings.Join(buffer, ""), " "))
 	}
 	if len(previousToken) != 0 && depth == 0 {
-		return strings.Trim(strings.Join(previousToken, ""), " ")
+		return extractFromSingleWord(strings.Trim(strings.Join(previousToken, ""), " "))
 	}
 
 	return ""
