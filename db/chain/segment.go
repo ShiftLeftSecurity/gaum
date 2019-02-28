@@ -48,7 +48,7 @@ const (
 	sqlLeftJoin  sqlSegment = "LEFT JOIN"
 	sqlRightJoin sqlSegment = "RIGHT JOIN"
 	sqlInnerJoin sqlSegment = "INNER JOIN"
-	sqlOuterJoin sqlSegment = "OUTER JOIN"
+	sqlFullJoin  sqlSegment = "FULL JOIN"
 	sqlSelect    sqlSegment = "SELECT"
 	sqlDelete    sqlSegment = "DELETE"
 	sqlInsert    sqlSegment = "INSERT"

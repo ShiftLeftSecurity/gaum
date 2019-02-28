@@ -495,14 +495,14 @@ func (ec *ExpresionChain) InnerJoin(expr, on string, args ...interface{}) *Expre
 	return ec
 }
 
-// OuterJoin adds a 'OUTER JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
+// FullJoin adds a 'FULL JOIN' to the 'ExpresionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) OuterJoin(expr, on string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) FullJoin(expr, on string, args ...interface{}) *ExpresionChain {
 	expr = fmt.Sprintf("%s ON %s", expr, on)
 	ec.append(
 		querySegmentAtom{
-			segment:   sqlOuterJoin,
+			segment:   sqlFullJoin,
 			expresion: expr,
 			arguments: args,
 			sqlBool:   SQLNothing,
@@ -827,7 +827,7 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		joins = append(joins, extract(ec, sqlLeftJoin)...)
 		joins = append(joins, extract(ec, sqlRightJoin)...)
 		joins = append(joins, extract(ec, sqlInnerJoin)...)
-		joins = append(joins, extract(ec, sqlOuterJoin)...)
+		joins = append(joins, extract(ec, sqlFullJoin)...)
 		if len(joins) != 0 {
 			for _, join := range joins {
 
