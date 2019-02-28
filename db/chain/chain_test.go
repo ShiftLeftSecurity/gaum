@@ -262,8 +262,8 @@ func TestExpresionChain_Render(t *testing.T) {
 				LeftJoin("one_convenient_table", "pirulo2 = ?", "dospirulo").
 				RightJoin("three_convenient_table", "pirulo3 = ?", "trespirulo").
 				InnerJoin("four_convenient_table", "pirulo4 = ?", "cuatropirulo").
-				OuterJoin("five_convenient_table", "pirulo5 = ?", "cincopirulo"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 JOIN yet_another_convenient_table ON pirulo = $2 LEFT JOIN one_convenient_table ON pirulo2 = $3 RIGHT JOIN three_convenient_table ON pirulo3 = $4 INNER JOIN four_convenient_table ON pirulo4 = $5 OUTER JOIN five_convenient_table ON pirulo5 = $6 WHERE field1 > $7 AND field2 = $8 AND field3 > $9",
+				FullJoin("five_convenient_table", "pirulo5 = ?", "cincopirulo"),
+			want:     "SELECT field1, field2, field3 FROM convenient_table JOIN another_convenient_table ON pirulo = $1 JOIN yet_another_convenient_table ON pirulo = $2 LEFT JOIN one_convenient_table ON pirulo2 = $3 RIGHT JOIN three_convenient_table ON pirulo3 = $4 INNER JOIN four_convenient_table ON pirulo4 = $5 FULL JOIN five_convenient_table ON pirulo5 = $6 WHERE field1 > $7 AND field2 = $8 AND field3 > $9",
 			wantArgs: []interface{}{"unpirulo", "otrounpirulo", "dospirulo", "trespirulo", "cuatropirulo", "cincopirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
