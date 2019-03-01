@@ -427,7 +427,7 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 
 	// Try to fetch the data
 	err := rows.Scan(fields...)
-	if err == pgx.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return gaumErrors.ErrNoRows
 	}
 	if err != nil {
