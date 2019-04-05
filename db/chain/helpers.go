@@ -15,8 +15,13 @@
 package chain
 
 import (
+	"database/sql"
 	"fmt"
 	"strings"
+
+	"github.com/jackc/pgx"
+
+	"github.com/ShiftLeftSecurity/gaum/db/errors"
 )
 
 const (
@@ -196,7 +201,7 @@ func Not(ec *ExpresionChain) *ExpresionChain {
 	return ec
 }
 
-// Allow selection of distinct results only.
+// Distinct allows selection of distinct results only.
 func Distinct(field string) string {
 	return fmt.Sprintf("DISTINCT %s", field)
 }
@@ -274,4 +279,10 @@ func Null(field string) string {
 // with timezone.
 func SetToCurrentTimestamp(field string) string {
 	return fmt.Sprintf("%s = %s", field, CurrentTimestampPGFn)
+}
+
+// IsNoRows returns true if the passed error is one of the many possibilities of
+// no rows returned by the different libraries.
+func IsNoRows(err error) bool {
+	return err == errors.ErrNoRows || err == sql.ErrNoRows || err == pgx.ErrNoRows
 }
