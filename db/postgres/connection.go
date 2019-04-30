@@ -163,7 +163,7 @@ func (d *DB) EQueryIter(statement string, fields []string, args ...interface{}) 
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.QueryIter(s, fields, a)
+	return d.QueryIter(s, fields, a...)
 }
 
 // QueryIter returns an iterator that can be used to fetch results one by one, beware this holds
@@ -236,7 +236,7 @@ func (d *DB) EQueryPrimitive(statement string, field string, args ...interface{}
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.QueryPrimitive(s, field, a)
+	return d.QueryPrimitive(s, field, a...)
 }
 
 // QueryPrimitive returns a function that allowss recovering the results of the query but to a slice
@@ -301,7 +301,7 @@ func (d *DB) UnPreparedEQuery(statement string, fields []string, args ...interfa
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.queryEx(s, fields, true, a)
+	return d.queryEx(s, fields, true, a...)
 }
 
 // EQuery calls EscapeArgs before invoking Query
@@ -310,7 +310,7 @@ func (d *DB) EQuery(statement string, fields []string, args ...interface{}) (con
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.Query(s, fields, a)
+	return d.Query(s, fields, a...)
 }
 
 // Query returns a function that allows recovering the results of the query, beware the connection
