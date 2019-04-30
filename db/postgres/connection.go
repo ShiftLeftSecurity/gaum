@@ -295,6 +295,15 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 	}, nil
 }
 
+// UnPreparedEQuery runs the Query escaping arguments but not running prepare before the statement.
+func (d *DB) UnPreparedEQuery(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
+	s, a, err := connection.EscapeArgs(statement, args)
+	if err != nil {
+		return nil, errors.Wrap(err, "escaping arguments")
+	}
+	return d.queryEx(s, fields, true, a)
+}
+
 // EQuery calls EscapeArgs before invoking Query
 func (d *DB) EQuery(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
 	s, a, err := connection.EscapeArgs(statement, args)
@@ -307,13 +316,32 @@ func (d *DB) EQuery(statement string, fields []string, args ...interface{}) (con
 // Query returns a function that allows recovering the results of the query, beware the connection
 // is held until the returned closusure is invoked.
 func (d *DB) Query(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
+	return d.queryEx(statement, fields, false, args...)
+}
+func (d *DB) queryEx(statement string, fields []string, useEx bool, args ...interface{}) (connection.ResultFetch, error) {
 	var rows *pgx.Rows
 	var err error
 	var connQ func(string, ...interface{}) (*pgx.Rows, error)
 	if d.tx != nil {
-		connQ = d.tx.Query
+		if useEx {
+			connQ = func(s string, a ...interface{}) (*pgx.Rows, error) {
+				return d.tx.QueryEx(context.Background(), s,
+					&pgx.QueryExOptions{SimpleProtocol: true},
+					a...)
+			}
+		} else {
+			connQ = d.tx.Query
+		}
 	} else if d.conn != nil {
-		connQ = d.conn.Query
+		if useEx {
+			connQ = func(s string, a ...interface{}) (*pgx.Rows, error) {
+				return d.conn.QueryEx(context.Background(), s,
+					&pgx.QueryExOptions{SimpleProtocol: true},
+					a...)
+			}
+		} else {
+			connQ = d.conn.Query
+		}
 	} else {
 		return nil, gaumErrors.NoDB
 	}

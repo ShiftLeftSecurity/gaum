@@ -92,6 +92,8 @@ type DB interface {
 	Query(statement string, fields []string, args ...interface{}) (ResultFetch, error)
 	// EQuery is Query but will use EscapeArgs.
 	EQuery(statement string, fields []string, args ...interface{}) (ResultFetch, error)
+	// UnPreparedEQuery try to use a query without preparing it first.
+	UnPreparedEQuery(statement string, fields []string, args ...interface{}) (ResultFetch, error)
 	// QueryPrimitives returns a closure that allows fetching of the results of a query to a
 	// slice of primitives.
 	QueryPrimitive(statement string, field string, args ...interface{}) (ResultFetch, error)

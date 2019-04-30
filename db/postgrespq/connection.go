@@ -302,6 +302,11 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 	}, nil
 }
 
+// UnPreparedEQuery is just a passthrough for EQuery in this version of the driver.
+func (d *DB) UnPreparedEQuery(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
+	return d.EQuery(statement, fields, args...)
+}
+
 // EQuery calls EscapeArgs before invoking Query
 func (d *DB) EQuery(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
 	s, a, err := connection.EscapeArgs(statement, args)
