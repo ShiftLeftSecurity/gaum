@@ -15,6 +15,7 @@ package connection_testing
 //    limitations under the License.
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -813,6 +814,27 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	}
 	if rowsAffected != 2 {
 		t.Logf("expected 2 row to be affected by update, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+
+	//test query that does not have rows affected
+	tempTable := "test_exec_result_temp_table"
+	rowsAffected, err = db.ExecResult(fmt.Sprintf("CREATE TABLE %s (id int)", tempTable))
+	if err != nil {
+		t.Logf("create table failed: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 0 {
+		t.Logf("expected 0 rows to be affected by create table, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+	rowsAffected, err = db.ExecResult(fmt.Sprintf("DROP TABLE %s", tempTable))
+	if err != nil {
+		t.Logf("drop table failed: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 0 {
+		t.Logf("expected 0 rows to be affected by drop table, instead got: %d", rowsAffected)
 		t.FailNow()
 	}
 }
