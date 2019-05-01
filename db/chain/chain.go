@@ -37,6 +37,7 @@ type ExpresionChain struct {
 	segments      []querySegmentAtom
 	table         string
 	mainOperation *querySegmentAtom
+	ctes          map[string]*ExpresionChain
 
 	limit  *querySegmentAtom
 	offset *querySegmentAtom
@@ -774,6 +775,14 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 	if ec.mainOperation == nil {
 		return "", nil, errors.Errorf("missing main operation to perform on the db")
 	}
+
+	// For now CTEs are only supported with SELECT until I have time to actually go and read
+	// the doc.
+	cteQ, cteArgs, err := ec.renderctes()
+	if err != nil {
+		return "", nil, errors.Wrap(err, "rendering CTEs before main render")
+	}
+
 	switch ec.mainOperation.segment {
 	// INSERT
 	case sqlInsert:
@@ -804,6 +813,10 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		if ec.mainOperation.segment == sqlSelect {
 			query = fmt.Sprintf("SELECT %s",
 				expresion)
+			if len(cteQ) != 0 {
+				query = fmt.Sprintf("%s %s", cteQ, query)
+				args = append(args, cteArgs...)
+			}
 		} else {
 			query = "DELETE "
 		}

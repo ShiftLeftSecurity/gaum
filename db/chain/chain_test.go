@@ -408,6 +408,30 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantArgs: []interface{}{"somethingelse", 2, "something"},
 			wantErr:  false,
 		},
+		{
+			name: "basic selection with CTEs",
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+				With("a_cte", (&ExpresionChain{}).Select("*").From("some_table_in_cte")).
+				Table("convenient_table").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				AndWhere("field3 > ?", "pajarito"),
+			want:     "WITH a_cte AS (SELECT * FROM some_table_in_cte) SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3",
+			wantArgs: []interface{}{1, 2, "pajarito"},
+			wantErr:  false,
+		},
+		{
+			name: "basic selection with CTEs with args",
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+				With("a_cte", (&ExpresionChain{}).Select("*").From("some_table_in_cte").AndWhere("a_field = ?", "ctevalue")).
+				Table("convenient_table").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				AndWhere("field3 > ?", "pajarito"),
+			want:     "WITH a_cte AS (SELECT * FROM some_table_in_cte WHERE a_field = $1) SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
+			wantArgs: []interface{}{"ctevalue", 1, 2, "pajarito"},
+			wantErr:  false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
