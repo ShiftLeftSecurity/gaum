@@ -473,7 +473,6 @@ func (d *DB) exec(statement string, args ...interface{}) (sql.Result, error) {
 		defer cancel()
 		if d.tx != nil {
 			connTag, err = d.tx.ExecContext(ctx, statement, args...)
-
 		} else if d.conn != nil {
 			connTag, err = d.conn.ExecContext(ctx, statement, args...)
 		} else {
@@ -491,7 +490,6 @@ func (d *DB) exec(statement string, args ...interface{}) (sql.Result, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "querying database, obtained %s", connTag)
 	}
-
 	return connTag, nil
 }
 
