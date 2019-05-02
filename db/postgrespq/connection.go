@@ -447,6 +447,24 @@ func (d *DB) EExec(statement string, args ...interface{}) error {
 
 // Exec will run the statement and expect nothing in return.
 func (d *DB) Exec(statement string, args ...interface{}) error {
+	_, err := d.exec(statement, args...)
+	return err
+}
+
+// ExecResult will run the statement and return the number of rows affected.
+func (d *DB) ExecResult(statement string, args ...interface{}) (int64, error) {
+	connTag, err := d.exec(statement, args...)
+	if err != nil {
+		return 0, err
+	}
+	rowsAffected, err := connTag.RowsAffected()
+	if err != nil {
+		return 0, errors.Wrap(err, "reading rowsAffected from connTag")
+	}
+	return rowsAffected, nil
+}
+
+func (d *DB) exec(statement string, args ...interface{}) (sql.Result, error) {
 	var connTag sql.Result
 	var err error
 
@@ -458,7 +476,7 @@ func (d *DB) Exec(statement string, args ...interface{}) error {
 		} else if d.conn != nil {
 			connTag, err = d.conn.ExecContext(ctx, statement, args...)
 		} else {
-			return gaumErrors.NoDB
+			return nil, gaumErrors.NoDB
 		}
 	} else {
 		if d.tx != nil {
@@ -466,13 +484,13 @@ func (d *DB) Exec(statement string, args ...interface{}) error {
 		} else if d.conn != nil {
 			connTag, err = d.conn.Exec(statement, args...)
 		} else {
-			return gaumErrors.NoDB
+			return nil, gaumErrors.NoDB
 		}
 	}
 	if err != nil {
-		return errors.Wrapf(err, "querying database, obtained %s", connTag)
+		return nil, errors.Wrapf(err, "querying database, obtained %s", connTag)
 	}
-	return nil
+	return connTag, nil
 }
 
 // BeginTransaction returns a new DB that will use the transaction instead of the basic conn.

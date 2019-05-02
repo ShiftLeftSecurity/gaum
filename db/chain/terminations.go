@@ -79,6 +79,12 @@ func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
 
 // Exec executes the chain, works for Insert and Update
 func (ec *ExpresionChain) Exec() (execError error) {
+	_, err := ec.ExecResult()
+	return err
+}
+
+// Exec executes the chain, works for Insert and Update
+func (ec *ExpresionChain) ExecResult() (rowsAffected int64, execError error) {
 	if ec.hasErr() {
 		execError = ec.getErr()
 		return
@@ -87,7 +93,7 @@ func (ec *ExpresionChain) Exec() (execError error) {
 	var args []interface{}
 	q, args, execError = ec.Render()
 	if execError != nil {
-		return errors.Wrap(execError, "rendering query to exec")
+		return 0, errors.Wrap(execError, "rendering query to exec")
 	}
 	var db connection.DB
 	// default we use the current db and transaction
@@ -97,7 +103,7 @@ func (ec *ExpresionChain) Exec() (execError error) {
 	if ec.set != "" && !ec.db.IsTransaction() {
 		db, execError = ec.db.BeginTransaction()
 		if execError != nil {
-			return errors.Wrap(execError, "starting transaction to run SET LOCAL")
+			return 0, errors.Wrap(execError, "starting transaction to run SET LOCAL")
 		}
 		defer func() {
 			if execError != nil {
@@ -115,11 +121,11 @@ func (ec *ExpresionChain) Exec() (execError error) {
 	if ec.set != "" && ec.db.IsTransaction() {
 		execError = db.Set(ec.set)
 		if execError != nil {
-			return errors.Wrap(execError, "running set for this transaction")
+			return 0, errors.Wrap(execError, "running set for this transaction")
 		}
 	}
 
-	return db.Exec(q, args...)
+	return db.ExecResult(q, args...)
 }
 
 // Raw executes the query and tries to scan the result into fields without much safeguard nor

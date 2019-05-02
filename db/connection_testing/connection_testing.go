@@ -15,6 +15,7 @@ package connection_testing
 //    limitations under the License.
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -77,6 +78,10 @@ func DoTestConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
 
 func DoTestConnector_Regression_Returning(t *testing.T, newDB NewDB) {
 	testConnector_Regression_Returning(t, newDB)
+}
+
+func DoTestConnector_ExecResult(t *testing.T, newDB NewDB) {
+	testConnector_ExecResult(t, newDB)
 }
 
 type NewDB func(t *testing.T) connection.DB
@@ -250,7 +255,7 @@ func testConnector_Distinct(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
 	ids := []struct {
-		ID int `gaum:"field_name:id"`
+		ID          int    `gaum:"field_name:id"`
 		Description string `gaum:"field_name:description"`
 	}{}
 
@@ -286,7 +291,7 @@ func testConnector_DistinctAs(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
 	ids := []struct {
-		ID int `gaum:"field_name:renamed"`
+		ID          int    `gaum:"field_name:renamed"`
 		Description string `gaum:"field_name:description"`
 	}{}
 
@@ -725,6 +730,111 @@ func testConnector_Regression_Returning(t *testing.T, newDB NewDB) {
 	}
 	if oneDescription != "this should be the updated value" {
 		t.Logf("row Description is %q expected \"first\"", oneDescription)
+		t.FailNow()
+	}
+}
+
+func testConnector_ExecResult(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+
+	rand.Seed(time.Now().UnixNano())
+	tempID1 := rand.Intn(11000) + 10
+	tempID2 := rand.Intn(11000) + 10
+	tempID3 := rand.Intn(11000) + 10
+	initialDesc1 := uuid.NewV4().String()
+	initialDesc2And3 := uuid.NewV4().String()
+
+	insertQuery := chain.NewExpresionChain(db)
+	_, err := insertQuery.InsertMulti(
+		map[string][]interface{}{
+			"id":          []interface{}{tempID1, tempID2, tempID3},
+			"description": []interface{}{initialDesc1, initialDesc2And3, initialDesc2And3},
+		})
+	insertQuery.Table("justforfun")
+	if err != nil {
+		t.Logf("failed to generate insertQuery: %v", err)
+		t.FailNow()
+	}
+	rowsAffected, err := insertQuery.ExecResult()
+	if err != nil {
+		t.Logf("failed to insert: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 3 {
+		t.Logf("expected 3 row to be affected by insert, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+
+	newDesc1 := uuid.NewV4().String()
+	newDesc2And3 := uuid.NewV4().String()
+
+	// First test 0 rows affected.
+	updateQuery := chain.NewExpresionChain(db)
+	updateQuery.UpdateMap(map[string]interface{}{"description": newDesc1}).
+		Table("justforfun").
+		AndWhere("id = ?", tempID1).
+		AndWhere("description = ?", "expect that this description does not exist")
+	rowsAffected, err = updateQuery.ExecResult()
+	if err != nil {
+		t.Logf("failed to update: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 0 {
+		t.Logf("expected 0 row to be affected by update, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+
+	// test 1 rows affected.
+	updateQuery = chain.NewExpresionChain(db)
+	updateQuery.UpdateMap(map[string]interface{}{"id": tempID1, "description": newDesc1}).
+		Table("justforfun").
+		AndWhere("id = ?", tempID1).
+		AndWhere("description = ?", initialDesc1)
+	rowsAffected, err = updateQuery.ExecResult()
+	if err != nil {
+		t.Logf("failed to update: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 1 {
+		t.Logf("expected 1 row to be affected by update, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+
+	//test multiple rows affected
+	updateQuery = chain.NewExpresionChain(db)
+	updateQuery = chain.NewExpresionChain(db)
+	updateQuery.UpdateMap(map[string]interface{}{"description": newDesc2And3}).
+		Table("justforfun").
+		AndWhere("id = ? OR id = ?", tempID2, tempID3).
+		AndWhere("description = ?", initialDesc2And3)
+	rowsAffected, err = updateQuery.ExecResult()
+	if err != nil {
+		t.Logf("failed to update: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 2 {
+		t.Logf("expected 2 row to be affected by update, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+
+	//test query that does not have rows affected
+	tempTable := "test_exec_result_temp_table"
+	rowsAffected, err = db.ExecResult(fmt.Sprintf("CREATE TABLE %s (id int)", tempTable))
+	if err != nil {
+		t.Logf("create table failed: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 0 {
+		t.Logf("expected 0 rows to be affected by create table, instead got: %d", rowsAffected)
+		t.FailNow()
+	}
+	rowsAffected, err = db.ExecResult(fmt.Sprintf("DROP TABLE %s", tempTable))
+	if err != nil {
+		t.Logf("drop table failed: %v", err)
+		t.FailNow()
+	}
+	if rowsAffected != 0 {
+		t.Logf("expected 0 rows to be affected by drop table, instead got: %d", rowsAffected)
 		t.FailNow()
 	}
 }
