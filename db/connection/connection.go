@@ -104,7 +104,7 @@ type DB interface {
 	ERaw(statement string, args []interface{}, fields ...interface{}) error
 	// Exec is intended for queries that do not yield results (data modifiers)
 	Exec(statement string, args ...interface{}) error
-	// ExecResult is intended for queries that modify data and respond with how many rowsaffected.
+	// ExecResult is intended for queries that modify data and respond with how many rows were affected.
 	ExecResult(statement string, args ...interface{}) (int64, error)
 	// EExec is Exec but will use EscapeArgs.
 	EExec(statement string, args ...interface{}) error
