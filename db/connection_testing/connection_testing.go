@@ -22,6 +22,7 @@ import (
 
 	"github.com/ShiftLeftSecurity/gaum/db/chain"
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
+	"github.com/jackc/pgx"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -42,6 +43,10 @@ func DoTestConnector_QueryIter(t *testing.T, newDB NewDB) {
 
 func DoTestConnector_Query(t *testing.T, newDB NewDB) {
 	testConnector_Query(t, newDB)
+}
+
+func DoTestConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
+	testConnector_QueryReturningWithError(t, newDB)
 }
 
 func DoTestConnector_Distinct(t *testing.T, newDB NewDB) {
@@ -247,6 +252,47 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 			t.FailNow()
 		}
 
+	}
+
+}
+
+func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+	type InnerRow struct {
+		Id int
+	}
+	type row struct {
+		InnerRow
+		Description string
+	}
+
+	query := chain.NewExpresionChain(db)
+	query.Insert(map[string]interface{}{
+		"id":          1,
+		"description": "this id already exists",
+	}).
+		Table("justforfun").
+		Returning("*")
+
+	fetcher, err := query.Query()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	var multiRow []row
+	err = fetcher(&multiRow)
+	if err == nil {
+		t.Error("expected to receive an error, instead got nil")
+	}
+	if pgErr, ok := err.(pgx.PgError); ok {
+		if pgErr.Severity != "ERROR" {
+			t.Error("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
+		}
+		if pgErr.Code != "23505" {
+			t.Error("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
+		}
+	} else {
+		t.Error("expected to receive a PgError error, instead got %T, %+v", err, err)
 	}
 
 }
