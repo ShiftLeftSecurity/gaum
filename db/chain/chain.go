@@ -38,6 +38,7 @@ type ExpresionChain struct {
 	table         string
 	mainOperation *querySegmentAtom
 	ctes          map[string]*ExpresionChain
+	ctesOrder     []string // because deterministic tests and co-dependency
 
 	limit  *querySegmentAtom
 	offset *querySegmentAtom
@@ -90,8 +91,10 @@ func (ec *ExpresionChain) Clone() *ExpresionChain {
 		segments[i] = s.clone()
 	}
 	ctes := make(map[string]*ExpresionChain, len(ec.ctes))
-	for k := range ec.ctes {
+	order := make([]string, len(ec.ctesOrder), len(ec.ctesOrder))
+	for i, k := range ec.ctesOrder {
 		ctes[k] = ec.ctes[k].Clone()
+		order[i] = k
 	}
 	return &ExpresionChain{
 		limit:         limit,
@@ -100,6 +103,7 @@ func (ec *ExpresionChain) Clone() *ExpresionChain {
 		mainOperation: mainOperation,
 		table:         ec.table,
 		ctes:          ctes,
+		ctesOrder:     order,
 
 		db: ec.db,
 	}

@@ -25,8 +25,13 @@ import (
 func (ec *ExpresionChain) With(name string, cte *ExpresionChain) *ExpresionChain {
 	if len(ec.ctes) == 0 {
 		ec.ctes = map[string]*ExpresionChain{}
+		ec.ctesOrder = []string{}
 	}
+	_, ok := ec.ctes[name]
 	ec.ctes[name] = cte
+	if !ok {
+		ec.ctesOrder = append(ec.ctesOrder, name)
+	}
 	return ec
 }
 
@@ -36,7 +41,8 @@ func (ec *ExpresionChain) renderctes() (string, []interface{}, error) {
 	}
 	args := []interface{}{}
 	queries := []string{}
-	for name, expr := range ec.ctes {
+	for _, name := range ec.ctesOrder {
+		expr := ec.ctes[name]
 		cteQ, cteArgs, err := expr.render(true)
 		if err != nil {
 			return "", nil, errors.Wrapf(err, "rendering cte %s", name)
