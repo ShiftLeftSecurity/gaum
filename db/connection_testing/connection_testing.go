@@ -49,6 +49,10 @@ func DoTestConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 	testConnector_QueryReturningWithError(t, newDB)
 }
 
+func DoTestConnector_QueryNoRows(t *testing.T, newDB NewDB) {
+	testConnector_QueryNoRows(t, newDB)
+}
+
 func DoTestConnector_Distinct(t *testing.T, newDB NewDB) {
 	testConnector_Distinct(t, newDB)
 }
@@ -258,11 +262,8 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 
 func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 	db := newDB(t)
-	type InnerRow struct {
-		Id int
-	}
 	type row struct {
-		InnerRow
+		Id          int
 		Description string
 	}
 
@@ -294,7 +295,28 @@ func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 	} else {
 		t.Error("expected to receive a PgError error, instead got %T, %+v", err, err)
 	}
+}
 
+func testConnector_QueryNoRows(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+	type row struct {
+		Id          int
+		Description string
+	}
+
+	query := chain.NewExpresionChain(db)
+	query.Select("*").AndWhere("id = ?", 99999999).Table("justforfun")
+
+	fetcher, err := query.Query()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	var multiRow []row
+	err = fetcher(&multiRow)
+	if err != nil {
+		t.Error("expected to receive no error, instead got %v", err)
+	}
 }
 
 func testConnector_Distinct(t *testing.T, newDB NewDB) {
