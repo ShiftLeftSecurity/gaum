@@ -83,7 +83,7 @@ func (ec *ExpresionChain) Exec() (execError error) {
 	return err
 }
 
-// Exec executes the chain, works for Insert and Update
+// ExecResult executes the chain and returns rows affected info, works for Insert and Update
 func (ec *ExpresionChain) ExecResult() (rowsAffected int64, execError error) {
 	if ec.hasErr() {
 		execError = ec.getErr()

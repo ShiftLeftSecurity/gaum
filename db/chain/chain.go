@@ -89,12 +89,17 @@ func (ec *ExpresionChain) Clone() *ExpresionChain {
 	for i, s := range ec.segments {
 		segments[i] = s.clone()
 	}
+	ctes := make(map[string]*ExpresionChain, len(ec.ctes))
+	for k := range ec.ctes {
+		ctes[k] = ec.ctes[k].Clone()
+	}
 	return &ExpresionChain{
 		limit:         limit,
 		offset:        offset,
 		segments:      segments,
 		mainOperation: mainOperation,
 		table:         ec.table,
+		ctes:          ctes,
 
 		db: ec.db,
 	}
