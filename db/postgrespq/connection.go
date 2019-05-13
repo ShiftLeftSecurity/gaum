@@ -233,7 +233,7 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 				"scanning values into recipient, connection was closed")
 		}
 
-		return rows.Next(), func() { rows.Close() }, nil
+		return rows.Next(), func() { rows.Close() }, rows.Err()
 	}, nil
 }
 
@@ -298,7 +298,7 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 			// passed, how cool is that?
 			destinationSlice.Set(reflect.Append(destinationSlice, newElemPtr.Elem()))
 		}
-		return nil
+		return rows.Err()
 	}, nil
 }
 
@@ -387,7 +387,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			// passed, how cool is that?
 			destinationSlice.Set(reflect.Append(destinationSlice, newElemPtr.Elem()))
 		}
-		return nil
+		return rows.Err()
 	}, nil
 }
 
