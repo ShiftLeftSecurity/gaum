@@ -57,6 +57,7 @@ const (
 	sqlGroup     sqlSegment = "GROUP BY"
 	sqlOrder     sqlSegment = "ORDER BY"
 	sqlReturning sqlSegment = "RETURNING"
+	sqlHaving    sqlSegment = "HAVING"
 	// SPECIAL CASES
 	sqlInsertMulti sqlSegment = "INSERTM"
 )

@@ -215,6 +215,34 @@ func (ec *ExpresionChain) OrWhere(expr string, args ...interface{}) *ExpresionCh
 	return ec
 }
 
+// AndHaving adds a 'HAVING' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) AndHaving(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlHaving,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLAnd,
+		})
+	return ec
+}
+
+// OrHaving adds a 'HAVING' to the 'ExpresionChain' and returns the same chan to facilitate
+// further chaining.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) OrHaving(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlHaving,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLOr,
+		})
+	return ec
+}
+
 // Select set fields to be returned by the final query.
 func (ec *ExpresionChain) Select(fields ...string) *ExpresionChain {
 	ec.mainOperation = &querySegmentAtom{
@@ -761,7 +789,7 @@ func (ec *ExpresionChain) renderWhereRaw() (string, []interface{}) {
 				whereOrs = append(whereOrs, item)
 				continue
 			}
-			expr, arguments := item.render(i == 0, i == len(wheres)-1)
+			expr, arguments := item.render(whereCount == 0, i == len(wheres)-1)
 			whereStatement += expr
 			args = append(args, arguments...)
 			whereCount++
@@ -772,6 +800,38 @@ func (ec *ExpresionChain) renderWhereRaw() (string, []interface{}) {
 			args = append(args, arguments...)
 		}
 		return whereStatement, args
+	}
+	return "", nil
+}
+
+// renderHavingRaw renders only the HAVING portion of an ExpresionChain and returns it without
+// placeholder markers replaced.
+func (ec *ExpresionChain) renderHavingRaw() (string, []interface{}) {
+	// HAVING
+	havings := extract(ec, sqlHaving)
+	// Separate having statements that are not ANDed since they will need
+	// to go after others with AND.
+	havingOrs := []querySegmentAtom{}
+	if len(havings) != 0 {
+		havingStatement := ""
+		args := []interface{}{}
+		havingCount := 0
+		for i, item := range havings {
+			if item.sqlBool != SQLAnd {
+				havingOrs = append(havingOrs, item)
+				continue
+			}
+			expr, arguments := item.render(havingCount == 0, i == len(havings)-1)
+			havingStatement += expr
+			args = append(args, arguments...)
+			havingCount++
+		}
+		for i, item := range havingOrs {
+			expr, arguments := item.render(havingCount+i == 0, i == len(havingOrs)-1)
+			havingStatement += expr
+			args = append(args, arguments...)
+		}
+		return havingStatement, args
 	}
 	return "", nil
 }
@@ -883,6 +943,13 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		}
 		query += groupByStatement
 		query += strings.Join(groupCriteria, ", ")
+	}
+
+	// HAVING
+	having, havingArgs := ec.renderHavingRaw()
+	if having != "" {
+		query += " HAVING " + having
+		args = append(args, havingArgs...)
 	}
 
 	// ORDER BY
