@@ -74,6 +74,19 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic selection with or having",
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+				Table("convenient_table").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				OrWhere("field3 > ?", "pajarito").
+				OrHaving("haveable < ?", 1).
+				AndHaving("moreHaveable == ?", 3),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR field3 > $3 HAVING  moreHaveable == $4 OR haveable < $5",
+			wantArgs: []interface{}{1, 2, "pajarito", 3, 1},
+			wantErr:  false,
+		},
+		{
 			name: "basic selection with nested where",
 			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
 				Table("convenient_table").
