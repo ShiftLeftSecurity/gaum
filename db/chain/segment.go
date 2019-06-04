@@ -60,6 +60,7 @@ const (
 	sqlHaving    sqlSegment = "HAVING"
 	// SPECIAL CASES
 	sqlInsertMulti sqlSegment = "INSERTM"
+	sqlUnion                  = "UNION"
 )
 
 type querySegmentAtom struct {
