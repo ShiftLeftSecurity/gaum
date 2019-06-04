@@ -243,6 +243,9 @@ func (ec *ExpresionChain) render(raw bool) (string, []interface{}, error) {
 		unionQueries := []string{}
 		for _, item := range unions {
 			expr := item.expresion
+			if item.sqlModifier != "" {
+				expr = fmt.Sprintf("%s %s", item.sqlModifier, expr)
+			}
 			if len(item.arguments) != 0 {
 				arguments := item.arguments
 				args = append(args, arguments...)

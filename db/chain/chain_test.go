@@ -452,8 +452,8 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Union("SELECT 1,2,3 FROM somewhere WHERE ? and ?", "union_pajarito", "union_gatito"),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 UNION SELECT 1,2,3 FROM somewhere WHERE $4 and $5",
+				Union("SELECT 1,2,3 FROM somewhere WHERE ? and ?", true, "union_pajarito", "union_gatito"),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 UNION ALL SELECT 1,2,3 FROM somewhere WHERE $4 and $5",
 			wantArgs: []interface{}{1, 2, "pajarito", "union_pajarito", "union_gatito"},
 			wantErr:  false,
 		},
@@ -470,7 +470,7 @@ func TestExpresionChain_Render(t *testing.T) {
 						From("convenient_table").
 						AndWhere("field1 > ?", 10).
 						AndWhere("field2 = ?", 20).
-						AndWhere("field3 > ?", "upajarito"))
+						AndWhere("field3 > ?", "upajarito"), false)
 				if err != nil {
 					t.Fatalf("could not create union: %v", err)
 				}

@@ -577,7 +577,7 @@ func (ec *ExpresionChain) GroupBy(expr string, args ...interface{}) *ExpresionCh
 
 // AddUnionFromChain renders the passed chain and adds it to the current one as a Union
 // returned ExpresionChain pointer is of current chain modified.
-func (ec *ExpresionChain) AddUnionFromChain(union *ExpresionChain) (*ExpresionChain, error) {
+func (ec *ExpresionChain) AddUnionFromChain(union *ExpresionChain, all bool) (*ExpresionChain, error) {
 	if len(union.ctes) != 0 {
 		return nil, errors.Errorf("cannot handle unions with CTEs outside of the primary query.")
 	}
@@ -586,19 +586,21 @@ func (ec *ExpresionChain) AddUnionFromChain(union *ExpresionChain) (*ExpresionCh
 		return nil, errors.Wrap(err, "rendering union query")
 	}
 
-	return ec.Union(expr, args...), nil
+	return ec.Union(expr, all, args...), nil
 }
 
 // Union adds the passed SQL expresion and args as a union to be made on this expresion, the
 // change is in place, there are no checks about correctness of the query.
-func (ec *ExpresionChain) Union(unionExpr string, args ...interface{}) *ExpresionChain {
-	ec.append(
-		querySegmentAtom{
-			segment:   sqlUnion,
-			expresion: unionExpr,
-			arguments: args,
-			sqlBool:   SQLNothing,
-		})
+func (ec *ExpresionChain) Union(unionExpr string, all bool, args ...interface{}) *ExpresionChain {
+	atom := querySegmentAtom{
+		segment:   sqlUnion,
+		expresion: unionExpr,
+		arguments: args,
+	}
+	if all {
+		atom.sqlModifier = SQLAll
+	}
+	ec.append(atom)
 	return ec
 }
 
