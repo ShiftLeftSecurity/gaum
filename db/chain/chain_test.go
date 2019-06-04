@@ -445,6 +445,41 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantArgs: []interface{}{"ctevalue", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
+		{
+			name: "Union with text query",
+			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+				From("convenient_table").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				AndWhere("field3 > ?", "pajarito").
+				Union("SELECT 1,2,3 FROM somewhere WHERE ? and ?", true, "union_pajarito", "union_gatito"),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 UNION ALL SELECT 1,2,3 FROM somewhere WHERE $4 and $5",
+			wantArgs: []interface{}{1, 2, "pajarito", "union_pajarito", "union_gatito"},
+			wantErr:  false,
+		},
+		{
+			name: "Union from expresion",
+			chain: func() *ExpresionChain {
+				ec := (&ExpresionChain{}).Select("field1", "field2", "field3").
+					From("convenient_table").
+					AndWhere("field1 > ?", 1).
+					AndWhere("field2 = ?", 2).
+					AndWhere("field3 > ?", "pajarito")
+				ec, err := ec.AddUnionFromChain(
+					(&ExpresionChain{}).Select("fieldu1", "fieldu2", "fieldu3").
+						From("convenient_table").
+						AndWhere("field1 > ?", 10).
+						AndWhere("field2 = ?", 20).
+						AndWhere("field3 > ?", "upajarito"), false)
+				if err != nil {
+					t.Fatalf("could not create union: %v", err)
+				}
+				return ec
+			}(),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 UNION SELECT fieldu1, fieldu2, fieldu3 FROM convenient_table WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
+			wantArgs: []interface{}{1, 2, "pajarito", 10, 20, "upajarito"},
+			wantErr:  false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

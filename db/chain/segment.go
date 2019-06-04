@@ -38,6 +38,13 @@ const (
 	SQLOrNot sqlBool = "OR NOT"
 )
 
+type sqlModifier string
+
+const (
+	// SQLAll is a modifier that can be append to UNION, INTERSECT and EXCEPT
+	SQLAll sqlModifier = "ALL"
+)
+
 type sqlSegment string
 
 const (
@@ -60,13 +67,15 @@ const (
 	sqlHaving    sqlSegment = "HAVING"
 	// SPECIAL CASES
 	sqlInsertMulti sqlSegment = "INSERTM"
+	sqlUnion                  = "UNION"
 )
 
 type querySegmentAtom struct {
-	segment   sqlSegment
-	expresion string
-	arguments []interface{}
-	sqlBool   sqlBool
+	segment     sqlSegment
+	expresion   string
+	arguments   []interface{}
+	sqlBool     sqlBool
+	sqlModifier sqlModifier
 }
 
 func (q *querySegmentAtom) clone() querySegmentAtom {
