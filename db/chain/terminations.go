@@ -156,13 +156,13 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 
 // queryable handles checking if the function returns any results
 func (ec *ExpresionChain) queryable() bool {
-	if ec.mainOperation.segment == sqlInsert {
-		for _, segment := range ec.segments {
-			if segment.segment == sqlReturning {
-				return true
-			}
-		}
-		return false
+	if ec.mainOperation.segment == sqlSelect {
+		return true
 	}
-	return ec.mainOperation.segment == sqlSelect
+	for _, segment := range ec.segments {
+		if segment.segment == sqlReturning {
+			return true
+		}
+	}
+	return false
 }
