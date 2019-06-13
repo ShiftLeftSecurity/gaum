@@ -22,7 +22,7 @@ func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
 
 // String implements the stringer interface. It is intended to be used for logging/debugging purposes only.
 func (ec *ExpresionChain) String() string {
-	// best effort to grab more info about the query that failed to find a user.
+	// best effort to render the query
 	strQuery, args, err := ec.Render()
 	if err != nil {
 		return fmt.Sprintf("invalid query, err: %s", err.Error())
