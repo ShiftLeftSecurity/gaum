@@ -218,9 +218,12 @@ func FieldRecipientsFromType(logger logging.Logger, sqlFields []string,
 	return FieldRecipientsFromValueOf(logger, sqlFields, fieldMap, vod)
 }
 
-type NoopScanner struct{}
+// noopScanner implements the Scanner interface and ignores the value
+// this is useful if we do not know what to do with a value.
+// ie. We have asked for "*" and receive some unmapped fields
+type noopScanner struct{}
 
-func (ns NoopScanner) Scan(src interface{}) error {
+func (ns noopScanner) Scan(src interface{}) error {
 	return nil
 }
 
@@ -234,7 +237,7 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 		// TODO, check datatype compatibility or let it burn?
 		fVal, ok := fieldMap[field]
 		if !ok {
-			empty := NoopScanner{}
+			empty := noopScanner{}
 			fieldRecipients[i] = empty
 			continue
 		}
