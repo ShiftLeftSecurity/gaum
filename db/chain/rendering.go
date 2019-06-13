@@ -20,6 +20,16 @@ func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
 	return ec.render(true)
 }
 
+// String implements the stringer interface. It is intended to be used for logging/debugging purposes only.
+func (ec *ExpresionChain) String() string {
+	// best effort to grab more info about the query that failed to find a user.
+	strQuery, args, err := ec.Render()
+	if err != nil {
+		return fmt.Sprintf("invalid query, err: %s", err.Error())
+	}
+	return fmt.Sprintf("query: %s, args: %v", strQuery, args)
+}
+
 // renderWhereRaw renders only the where portion of an ExpresionChain and returns it without
 // placeholder markers replaced.
 func (ec *ExpresionChain) renderWhereRaw() (string, []interface{}) {
