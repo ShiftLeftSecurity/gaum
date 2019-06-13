@@ -56,6 +56,10 @@ func TestConnector_Query(t *testing.T) {
 	connection_testing.DoTestConnector_Query(t, newDB)
 }
 
+func TestConnector_QueryStar(t *testing.T) {
+	connection_testing.DoTestConnector_QueryStar(t, newDB)
+}
+
 func TestConnector_QueryReturningWithError(t *testing.T) {
 	connection_testing.DoTestConnector_QueryReturningWithError(t, newDB)
 }

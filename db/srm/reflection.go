@@ -218,6 +218,12 @@ func FieldRecipientsFromType(logger logging.Logger, sqlFields []string,
 	return FieldRecipientsFromValueOf(logger, sqlFields, fieldMap, vod)
 }
 
+type NoopScanner struct{}
+
+func (ns NoopScanner) Scan(src interface{}) error {
+	return nil
+}
+
 // FieldRecipientsFromValueOf returns an array of pointer to attributes from the passed
 // in reflect.Value.
 func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
@@ -228,7 +234,7 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 		// TODO, check datatype compatibility or let it burn?
 		fVal, ok := fieldMap[field]
 		if !ok {
-			var empty interface{}
+			empty := NoopScanner{}
 			fieldRecipients[i] = empty
 			continue
 		}

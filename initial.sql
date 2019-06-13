@@ -1,11 +1,11 @@
-CREATE TABLE justforfun (id int, description text, CONSTRAINT therecanbeonlyone UNIQUE (id));
-INSERT INTO justforfun (id, description) VALUES (1, 'first');
-INSERT INTO justforfun (id, description) VALUES (2, 'second');
+CREATE TABLE justforfun (id int, description text, not_used int, CONSTRAINT therecanbeonlyone UNIQUE (id));
+INSERT INTO justforfun (id, description, not_used) VALUES (1, 'first', NULL);
+INSERT INTO justforfun (id, description, not_used) VALUES (2, 'second', 200);
 INSERT INTO justforfun (id, description) VALUES (3, 'third');
 INSERT INTO justforfun (id, description) VALUES (4, 'fourth');
-INSERT INTO justforfun (id, description) VALUES (5, 'fift');
+INSERT INTO justforfun (id, description, not_used) VALUES (5, 'fift', NULL);
 INSERT INTO justforfun (id, description) VALUES (6, 'sixt');
 INSERT INTO justforfun (id, description) VALUES (7, 'seventh');
-INSERT INTO justforfun (id, description) VALUES (8, 'eight');
+INSERT INTO justforfun (id, description, not_used) VALUES (8, 'eight', 800);
 INSERT INTO justforfun (id, description) VALUES (9, 'ninth');
 INSERT INTO justforfun (id, description) VALUES (10, 'tenth');
