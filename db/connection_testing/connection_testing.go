@@ -349,13 +349,13 @@ func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 	}
 	if pgErr, ok := err.(pgx.PgError); ok {
 		if pgErr.Severity != "ERROR" {
-			t.Error("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
+			t.Errorf("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
 		}
 		if pgErr.Code != "23505" {
-			t.Error("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
+			t.Errorf("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
 		}
 	} else {
-		t.Error("expected to receive a PgError error, instead got %T, %+v", err, err)
+		t.Errorf("expected to receive a PgError error, instead got %T, %+v", err, err)
 	}
 }
 
@@ -377,7 +377,7 @@ func testConnector_QueryNoRows(t *testing.T, newDB NewDB) {
 	var multiRow []row
 	err = fetcher(&multiRow)
 	if err != nil {
-		t.Error("expected to receive no error, instead got %v", err)
+		t.Errorf("expected to receive no error, instead got %v", err)
 	}
 }
 
@@ -621,8 +621,7 @@ func testConnector_InsertStruct(t *testing.T, newDB NewDB) {
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
 	err := query.Raw(&aRow.Id, &aRow.Desc)
 	if err == nil {
-		t.Log("querying for our description should fail, this record should not exist")
-		t.FailNow()
+		t.Fatal("querying for our description should fail, this record should not exist")
 	}
 	rand.Seed(time.Now().UnixNano())
 	tempID := rand.Intn(11000)
@@ -630,26 +629,22 @@ func testConnector_InsertStruct(t *testing.T, newDB NewDB) {
 	insertQuery := chain.NewExpresionChain(db)
 	insertQuery, err = insertQuery.InsertStruct(row{Id: tempID, Desc: tempDescription})
 	if err != nil {
-		t.Fatal("failed to insert struct: %v", err)
+		t.Fatalf("failed to insert struct: %v", err)
 	}
 	err = insertQuery.Table("justforfun").Exec()
 	if err != nil {
-		t.Logf("failed to insert: %v", err)
-		t.FailNow()
+		t.Fatalf("failed to insert: %v", err)
 	}
 
 	err = query.Raw(&aRow.Id, &aRow.Desc)
 	if err != nil {
-		t.Log("querying for our description should fail, this record should not exist")
-		t.FailNow()
+		t.Fatal("querying for our description should fail, this record should not exist")
 	}
 	if aRow.Id != tempID {
-		t.Logf("row Id is %d expected %d", aRow.Id, tempID)
-		t.FailNow()
+		t.Fatalf("row Id is %d expected %d", aRow.Id, tempID)
 	}
 	if aRow.Desc != tempDescription {
-		t.Logf("row Description is %q expected %q", aRow.Desc, tempDescription)
-		t.FailNow()
+		t.Fatalf("row Description is %q expected %q", aRow.Desc, tempDescription)
 	}
 
 }

@@ -387,7 +387,7 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 	return ec
 }
 
-// Insert struct will do a shallow inspection of the struct, and for public exported fields
+// InsertStruct will do a shallow inspection of the struct, and for public exported fields
 // insert the values using the column names specified by either `gaum:"field_name:name"` struct tag
 // or the camel_case'd struct field name. Unexported (lowercase) field names are ignored.
 func (ec *ExpresionChain) InsertStruct(entity interface{}) (*ExpresionChain, error) {

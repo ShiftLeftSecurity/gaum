@@ -258,7 +258,7 @@ func (q *Q) InnerJoin(table string, on string, args ...interface{}) *Q {
 // you can use `?` as a placeholder for values to be safely passed as variadic arguments after
 // the <on> argument
 func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
-	q.query.OuterJoin(table, on, args...)
+	q.query.FullJoin(table, on, args...)
 	return q
 }
 
