@@ -169,6 +169,7 @@ func MapFromTypeOf(tod reflect.Type,
 
 // MapFromStruct does a shallow inspection of the struct and returns a map[string]interface{}
 // where the key names are either the `gaum:field_name:"name"` or the camel_case version of the field name.
+// Unexported field names are ignored.
 func MapFromStruct(in interface{}) (map[string]interface{}, error) {
 	v := reflect.ValueOf(in)
 	if v.Kind() != reflect.Struct {
@@ -181,7 +182,12 @@ func MapFromStruct(in interface{}) (map[string]interface{}, error) {
 		field := typ.Field(i)
 		name := nameFromTagOrName(field)
 		if name != "" {
-			out[name] = v.Field(i).Interface()
+			val := v.Field(i)
+
+			// this check prevents panic'ing on unexported fields
+			if val.CanInterface() {
+				out[name] = val.Interface()
+			}
 		}
 	}
 
