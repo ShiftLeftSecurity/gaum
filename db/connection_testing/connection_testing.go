@@ -73,6 +73,10 @@ func DoTestConnector_Insert(t *testing.T, newDB NewDB) {
 	testConnector_Insert(t, newDB)
 }
 
+func DoTestConnector_InsertStruct(t *testing.T, newDB NewDB) {
+	testConnector_InsertStruct(t, newDB)
+}
+
 func DoTestConnector_MultiInsert(t *testing.T, newDB NewDB) {
 	testConnector_MultiInsert(t, newDB)
 }
@@ -597,6 +601,54 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 	}
 	if aRow.Description != tempDescription1 {
 		t.Logf("row Description is %q expected %q", aRow.Description, tempDescription1)
+		t.FailNow()
+	}
+
+}
+
+func testConnector_InsertStruct(t *testing.T, newDB NewDB) {
+
+	db := newDB(t)
+	type row struct {
+		Id   int
+		Desc string `gaum:"field_name:description"`
+	}
+	aRow := row{}
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	tempDescriptionUUID := uuid.NewV4()
+	tempDescription := tempDescriptionUUID.String()
+	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
+	err := query.Raw(&aRow.Id, &aRow.Desc)
+	if err == nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	rand.Seed(time.Now().UnixNano())
+	tempID := rand.Intn(11000)
+
+	insertQuery := chain.NewExpresionChain(db)
+	insertQuery, err = insertQuery.InsertStruct(row{Id: tempID, Desc: tempDescription})
+	if err != nil {
+		t.Fatal("failed to insert struct: %v", err)
+	}
+	err = insertQuery.Table("justforfun").Exec()
+	if err != nil {
+		t.Logf("failed to insert: %v", err)
+		t.FailNow()
+	}
+
+	err = query.Raw(&aRow.Id, &aRow.Desc)
+	if err != nil {
+		t.Log("querying for our description should fail, this record should not exist")
+		t.FailNow()
+	}
+	if aRow.Id != tempID {
+		t.Logf("row Id is %d expected %d", aRow.Id, tempID)
+		t.FailNow()
+	}
+	if aRow.Desc != tempDescription {
+		t.Logf("row Description is %q expected %q", aRow.Desc, tempDescription)
 		t.FailNow()
 	}
 

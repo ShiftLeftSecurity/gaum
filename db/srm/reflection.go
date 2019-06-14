@@ -167,6 +167,27 @@ func MapFromTypeOf(tod reflect.Type,
 	return typeName, fieldMap, nil
 }
 
+// MapFromStruct does a shallow inspection of the struct and returns a map[string]interface{}
+// where the key names are either the `gaum:field_name:"name"` or the camel_case version of the field name.
+func MapFromStruct(in interface{}) (map[string]interface{}, error) {
+	v := reflect.ValueOf(in)
+	if v.Kind() != reflect.Struct {
+		return nil, errors.Errorf("cannot convert non-struct type %T to map", in)
+	}
+
+	out := map[string]interface{}{}
+	typ := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		field := typ.Field(i)
+		name := nameFromTagOrName(field)
+		if name != "" {
+			out[name] = v.Field(i).Interface()
+		}
+	}
+
+	return out, nil
+}
+
 // unwrapEmbedded will recursively discover fields in embedded structs and add them to the fieldMap
 // to be able to scan into them. There is no guarantee over order, if the user has many shadowing
 // fields between structs perhaps the user should do some cleanup of the codebase.

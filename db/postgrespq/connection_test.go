@@ -84,6 +84,9 @@ func TestConnector_Insert(t *testing.T) {
 	connection_testing.DoTestConnector_Insert(t, newDB)
 }
 
+func TestConnector_InsertStruct(t *testing.T) {
+	connection_testing.DoTestConnector_InsertStruct(t, newDB)
+}
 func TestConnector_MultiInsert(t *testing.T) {
 	connection_testing.DoTestConnector_MultiInsert(t, newDB)
 }

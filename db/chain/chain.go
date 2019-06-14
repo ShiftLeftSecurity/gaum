@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
+	"github.com/ShiftLeftSecurity/gaum/db/srm"
 	"github.com/pkg/errors"
 )
 
@@ -384,6 +385,14 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 		sqlBool:   SQLNothing,
 	}
 	return ec
+}
+
+func (ec *ExpresionChain) InsertStruct(entity interface{}) (*ExpresionChain, error) {
+	values, err := srm.MapFromStruct(entity)
+	if err != nil {
+		return nil, err
+	}
+	return ec.Insert(values), nil
 }
 
 // Update set fields/values for updates.
