@@ -15,6 +15,7 @@
 package srm
 
 import (
+	"fmt"
 	"reflect"
 	"strings"
 	"unicode"
@@ -221,9 +222,13 @@ func FieldRecipientsFromType(logger logging.Logger, sqlFields []string,
 // noopScanner implements the Scanner interface and ignores the value
 // this is useful if we do not know what to do with a value.
 // ie. We have asked for "*" and receive some unmapped fields
-type noopScanner struct{}
+type noopScanner struct {
+	field  string
+	logger logging.Logger
+}
 
 func (ns noopScanner) Scan(src interface{}) error {
+	ns.logger.Warn(fmt.Sprintf("ignoring scan (read) of (unmapped) column: %s, value: %+v", ns.field, src))
 	return nil
 }
 
@@ -237,7 +242,7 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 		// TODO, check datatype compatibility or let it burn?
 		fVal, ok := fieldMap[field]
 		if !ok {
-			empty := noopScanner{}
+			empty := noopScanner{logger: logger, field: field}
 			fieldRecipients[i] = empty
 			continue
 		}
