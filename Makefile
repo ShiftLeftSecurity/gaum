@@ -28,6 +28,10 @@ clean-docker:
 test-chain:
 	go test ./db/chain/.
 
+.PHONY: go-vet
+go-vet:
+	go vet ./...
+
 .PHONY: test-all
-test-all: test-chain test-postgres-pgx test-postgres-pq
+test-all: test-chain test-postgres-pgx test-postgres-pq go-vet
 
