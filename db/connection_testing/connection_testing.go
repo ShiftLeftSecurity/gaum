@@ -45,6 +45,10 @@ func DoTestConnector_Query(t *testing.T, newDB NewDB) {
 	testConnector_Query(t, newDB)
 }
 
+func DoTestConnector_QueryStar(t *testing.T, newDB NewDB) {
+	testConnector_QueryStar(t, newDB)
+}
+
 func DoTestConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 	testConnector_QueryReturningWithError(t, newDB)
 }
@@ -220,6 +224,60 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 	}
 	t.Logf("will perform query %q", q)
 	t.Logf("with arguments %#v", args)
+
+	var multiRow []row
+	ordinals := []string{
+		"first",
+		"second",
+		"third",
+		"fourth",
+		"fift",
+		"sixt",
+		"seventh",
+		"eight",
+		"ninth",
+		"tenth",
+	}
+	err = fetcher(&multiRow)
+	if err != nil {
+		t.Errorf("failed to fetch data: %v", err)
+	}
+
+	if len(multiRow) != 10 {
+		t.Logf("expected 10 results got %d", len(multiRow))
+		t.FailNow()
+	}
+	for i := 1; i < 11; i++ {
+		t.Logf("Iteration %d", i)
+		oneRowMulti := multiRow[i-1]
+
+		if oneRowMulti.Id != i {
+			t.Logf("row Id is %d expected 1", oneRowMulti.Id)
+			t.FailNow()
+		}
+		if oneRowMulti.Description != ordinals[i-1] {
+			t.Logf("row Description is %q expected %q", oneRowMulti.Description, ordinals[i-1])
+			t.FailNow()
+		}
+
+	}
+
+}
+
+func testConnector_QueryStar(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+	type row struct {
+		Id          int    `gaum:"field_name:id"`
+		Description string `gaum:"field_name:description"`
+	}
+
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	query.Select("*").Table("justforfun").OrderBy(chain.Asc("id"))
+	fetcher, err := query.Query()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
 
 	var multiRow []row
 	ordinals := []string{
