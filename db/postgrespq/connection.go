@@ -442,7 +442,7 @@ func (d *DB) EExec(statement string, args ...interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "escaping arguments")
 	}
-	return d.Exec(s, a)
+	return d.Exec(s, a...)
 }
 
 // Exec will run the statement and expect nothing in return.
