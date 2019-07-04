@@ -137,7 +137,7 @@ func (ec *ExpresionChain) append(atom querySegmentAtom) {
 func (ec *ExpresionChain) removeOfType(atomType sqlSegment) {
 	ec.lock.Lock()
 	defer ec.lock.Unlock()
-	newSegments := []querySegment{}
+	newSegments := []querySegmentAtom{}
 	for i, s := range ec.segments {
 		if s.segment == atomType {
 			continue
