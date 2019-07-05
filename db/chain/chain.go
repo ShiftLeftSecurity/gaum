@@ -588,10 +588,10 @@ func (ec *ExpresionChain) GroupBy(expr string, args ...interface{}) *ExpresionCh
 	return ec
 }
 
-// GreedyGroupBy adds a 'GROUP BY' to the 'ExpresionChain' and returns the same chan to facilitate
+// GroupByReplace adds a 'GROUP BY' to the 'ExpresionChain' and returns the same chain to facilitate
 // further chaining, this version of group by removes all other group by entries.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
-func (ec *ExpresionChain) GreedyGroupBy(expr string, args ...interface{}) *ExpresionChain {
+func (ec *ExpresionChain) GroupByReplace(expr string, args ...interface{}) *ExpresionChain {
 	ec.removeOfType(sqlGroup)
 	ec.append(
 		querySegmentAtom{
