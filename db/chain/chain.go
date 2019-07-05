@@ -134,6 +134,19 @@ func (ec *ExpresionChain) append(atom querySegmentAtom) {
 	ec.segments = append(ec.segments, atom)
 }
 
+func (ec *ExpresionChain) removeOfType(atomType sqlSegment) {
+	ec.lock.Lock()
+	defer ec.lock.Unlock()
+	newSegments := []querySegmentAtom{}
+	for i, s := range ec.segments {
+		if s.segment == atomType {
+			continue
+		}
+		newSegments = append(newSegments, ec.segments[i])
+	}
+	ec.segments = newSegments
+}
+
 func (ec *ExpresionChain) mutateLastBool(operation sqlBool) {
 	ec.lock.Lock()
 	defer ec.lock.Unlock()
@@ -565,6 +578,21 @@ func (ec *ExpresionChain) OrderBy(order *OrderByOperator) *ExpresionChain {
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) GroupBy(expr string, args ...interface{}) *ExpresionChain {
+	ec.append(
+		querySegmentAtom{
+			segment:   sqlGroup,
+			expresion: expr,
+			arguments: args,
+			sqlBool:   SQLNothing,
+		})
+	return ec
+}
+
+// GroupByReplace adds a 'GROUP BY' to the 'ExpresionChain' and returns the same chain to facilitate
+// further chaining, this version of group by removes all other group by entries.
+// THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
+func (ec *ExpresionChain) GroupByReplace(expr string, args ...interface{}) *ExpresionChain {
+	ec.removeOfType(sqlGroup)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlGroup,
