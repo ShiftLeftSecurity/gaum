@@ -2,7 +2,9 @@ package chain
 
 import (
 	"fmt"
+	"math"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -389,6 +391,25 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool) (string, []interface{}, er
 	return query, args, nil
 }
 
+// digitSize returns the amount of digits required to represent the argument placeholders
+// of a query, not including the $ symbol, pg will not like more than max(uint16) arguments
+// but we won't enforce that here.
+func digitSize(argLen int) int {
+	var repSize int
+	argLenLen := int(len(strconv.Itoa(argLen)))
+	for i := 1; i < argLenLen; i++ {
+		a := (9 * int(math.Pow10(int(i)-1))) * i
+		repSize += a
+	}
+
+	pow10 := math.Pow10(int(argLenLen) - 1)
+	repSize += (argLen - (int(pow10) - 1)) * argLenLen
+
+	return repSize
+}
+
+const commaSeparator = ", "
+
 // MarksToPlaceholders replaces `?` in the query with `$1` style placeholders, this must be
 // done with a finished query and requires the args as they depend on the position of the
 // already rendered query, it does some consistency control and finally expands `(?)`.
@@ -410,10 +431,28 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	// TODO: identify escaped questionmarks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
-	queryWithArgs := ""
+	//queryWithArgs := ""
 	argCounter := 1
 	argPositioner := 0
-	expandedArgs := []interface{}{}
+	totalArgLen := len(args)
+	commas := 0
+	for _, arg := range args {
+		switch reflect.TypeOf(arg).Kind() {
+		case reflect.Slice:
+			elementType := reflect.TypeOf(arg).Elem().Kind()
+			if elementType != reflect.Int8 && elementType != reflect.Uint8 {
+				v := reflect.ValueOf(arg).Len()
+				totalArgLen += v
+				commas += (v - 1) * 2 //commans have spaces, we are civilized people.
+			}
+		}
+	}
+	expandedArgs := make([]interface{}, 0, totalArgLen)
+	repSize := digitSize(int(totalArgLen)) + commas
+	expectedSize := repSize + len(q)
+	var queryWithArgs strings.Builder
+	queryWithArgs.Grow(expectedSize)
+
 	for _, queryChar := range q {
 		if queryChar == '?' {
 			arg := args[argPositioner]
@@ -422,31 +461,36 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 				elementType := reflect.TypeOf(arg).Elem().Kind()
 				if elementType != reflect.Int8 && elementType != reflect.Uint8 {
 					s := reflect.ValueOf(arg)
-					placeholders := []string{}
 					for i := 0; i < s.Len(); i++ {
 						expandedArgs = append(expandedArgs, s.Index(i).Interface())
-						placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
+						queryWithArgs.WriteRune('$')
+						queryWithArgs.WriteString(strconv.Itoa(argCounter))
+						if i < s.Len()-1 {
+							queryWithArgs.WriteString(commaSeparator)
+						}
 						argCounter++
 					}
-					queryWithArgs += strings.Join(placeholders, ", ")
 				} else {
 					expandedArgs = append(expandedArgs, arg)
-					queryWithArgs += fmt.Sprintf("$%d", argCounter)
+					queryWithArgs.WriteRune('$')
+					queryWithArgs.WriteString(strconv.Itoa(argCounter))
 					argCounter++
 				}
 			default:
 				expandedArgs = append(expandedArgs, arg)
-				queryWithArgs += fmt.Sprintf("$%d", argCounter)
+				queryWithArgs.WriteRune('$')
+				queryWithArgs.WriteString(strconv.Itoa(argCounter))
 				argCounter++
 			}
 			argPositioner++
 		} else {
-			queryWithArgs += string(queryChar)
+			queryWithArgs.WriteRune(queryChar)
 		}
 	}
 	if len(expandedArgs) != argCounter-1 {
-		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
-			argCounter-1, len(args), queryWithArgs, args)
+		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %#v",
+			argCounter-1, len(args), args)
 	}
-	return queryWithArgs, expandedArgs, nil
+
+	return queryWithArgs.String(), expandedArgs, nil
 }
