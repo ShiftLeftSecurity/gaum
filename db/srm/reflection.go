@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/ShiftLeftSecurity/gaum/db/logging"
@@ -232,6 +233,38 @@ func (ns noopScanner) Scan(src interface{}) error {
 	return nil
 }
 
+// nullScanner allows null strings and time values to be scanned into pointers to their respective
+// go values, it is extremely limited.
+type nullScanner struct {
+	fieldPtr interface{}
+	logger   logging.Logger
+}
+
+func (ns *nullScanner) Scan(src interface{}) error {
+	if src == nil {
+		return nil
+	}
+	ns.logger.Info(fmt.Sprintf("received %T %#v", src, src))
+	ns.logger.Info(fmt.Sprintf("have %T %#v", ns.fieldPtr, ns.fieldPtr))
+	switch s := src.(type) {
+	case string:
+		fieldV, ok := ns.fieldPtr.(**string)
+		if !ok {
+			return errors.Errorf("I expected this struct field to be *string but is %T ", ns.fieldPtr)
+		}
+		*fieldV = &s
+		return nil
+	case time.Time:
+		fieldV, ok := ns.fieldPtr.(**time.Time)
+		if !ok {
+			return errors.Errorf("I expected this struct field to be *time.Time but is %T ", ns.fieldPtr)
+		}
+		*fieldV = &s
+		return nil
+	}
+	return errors.Errorf("I do not know how to fit a nillable %T into a %T", src, ns.fieldPtr)
+}
+
 // FieldRecipientsFromValueOf returns an array of pointer to attributes from the passed
 // in reflect.Value.
 func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
@@ -248,6 +281,27 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 		}
 		// We do this by name to be able to work around Anonymous fields (embedded structs) which
 		// are not as transparent to reflect as they are to basic syntax.
+		fieldI := vod.FieldByName(fVal.Name).Interface()
+		fieldPtrI := vod.FieldByName(fVal.Name).Addr().Interface()
+
+		// pointer to string and time.Time are usually a declaration of intention to
+		// scan nullable fields of said types given that this is how gorm handles it
+		// so we wrap those in bubblewrap since sql.Scan does not know how to map
+		// nil to a pointer... I kid you not. `storing driver.Value type <nil> into type *time.Time`
+		switch fieldI.(type) {
+		case *string:
+			fieldRecipients[i] = &nullScanner{
+				fieldPtr: fieldPtrI,
+				logger:   logger,
+			}
+			continue
+		case *time.Time:
+			fieldRecipients[i] = &nullScanner{
+				fieldPtr: fieldPtrI,
+				logger:   logger,
+			}
+			continue
+		}
 		fieldRecipients[i] = vod.FieldByName(fVal.Name).Addr().Interface()
 	}
 	return fieldRecipients

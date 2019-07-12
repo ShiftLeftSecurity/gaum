@@ -45,6 +45,10 @@ func DoTestConnector_Query(t *testing.T, newDB NewDB) {
 	testConnector_Query(t, newDB)
 }
 
+func DoTestConnector_QueryReflection(t *testing.T, newDB NewDB) {
+	testConnector_QueryReflection(t, newDB)
+}
+
 func DoTestConnector_QueryStar(t *testing.T, newDB NewDB) {
 	testConnector_QueryStar(t, newDB)
 }
@@ -196,6 +200,84 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 	}
 	closerMulti()
 
+}
+
+func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
+
+	db := newDB(t)
+	type row struct {
+		Id          int
+		Description string
+		NotUsed     *string
+		NotUsedTime *time.Time
+	}
+
+	// Test Multiple row Iterator
+	query := chain.NewExpresionChain(db)
+	query.Select("*").Table("justforfun").OrderBy(chain.Asc("id"))
+	fetcher, err := query.Query()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+
+	q, args, err := query.Render()
+	if err != nil {
+		t.Errorf("failed to render: %v", err)
+	}
+	t.Logf("will perform query %q", q)
+	t.Logf("with arguments %#v", args)
+
+	var multiRow []row
+	ordinals := []string{
+		"first",
+		"second",
+		"third",
+		"fourth",
+		"fift",
+		"sixt",
+		"seventh",
+		"eight",
+		"ninth",
+		"tenth",
+	}
+
+	expectedNotUsed := map[int]string{
+		2: "meh",
+		8: "meh8",
+	}
+	err = fetcher(&multiRow)
+	if err != nil {
+		t.Errorf("failed to fetch data: %v", err)
+	}
+
+	if len(multiRow) != 10 {
+		t.Logf("expected 10 results got %d", len(multiRow))
+		t.FailNow()
+	}
+	for i := 1; i < 11; i++ {
+		t.Logf("Iteration %d", i)
+		oneRowMulti := multiRow[i-1]
+
+		if oneRowMulti.Id != i {
+			t.Logf("row Id is %d expected 1", oneRowMulti.Id)
+			t.FailNow()
+		}
+		if oneRowMulti.Description != ordinals[i-1] {
+			t.Logf("row Description is %q expected %q", oneRowMulti.Description, ordinals[i-1])
+			t.FailNow()
+		}
+		if nu, ok := expectedNotUsed[i]; ok {
+			if oneRowMulti.NotUsed == nil {
+				t.Logf("expected NotUsed value, got nil")
+				t.FailNow()
+			}
+			if *oneRowMulti.NotUsed != nu {
+				t.Logf("expected NotUsed value to be %s but is %s", nu, *oneRowMulti.NotUsed)
+				t.FailNow()
+			}
+		}
+
+	}
 }
 
 func testConnector_Query(t *testing.T, newDB NewDB) {
