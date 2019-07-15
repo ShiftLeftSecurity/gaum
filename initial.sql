@@ -8,4 +8,4 @@ INSERT INTO justforfun (id, description) VALUES (6, 'sixt');
 INSERT INTO justforfun (id, description) VALUES (7, 'seventh');
 INSERT INTO justforfun (id, description, not_used) VALUES (8, 'eight', 'meh8');
 INSERT INTO justforfun (id, description) VALUES (9, 'ninth');
-INSERT INTO justforfun (id, description) VALUES (10, 'tenth');
+INSERT INTO justforfun (id, description, not_used_time) VALUES (10, 'tenth', to_date('1985-10-26', 'YYYY-MM-DD'));
