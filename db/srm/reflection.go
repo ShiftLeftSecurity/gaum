@@ -240,26 +240,35 @@ type nullScanner struct {
 	logger   logging.Logger
 }
 
+// Scan implements Scanner interface for strings and Time structs and adds special handling for
+// nill cases when the receiver struct member is not a pointer (notice that reflection here
+// passes a pointer to the original member hence the double pointers for cases where it is
+// a pointer)
 func (ns *nullScanner) Scan(src interface{}) error {
 	if src == nil {
 		return nil
 	}
-	ns.logger.Info(fmt.Sprintf("received %T %#v", src, src))
-	ns.logger.Info(fmt.Sprintf("have %T %#v", ns.fieldPtr, ns.fieldPtr))
+
 	switch s := src.(type) {
 	case string:
-		fieldV, ok := ns.fieldPtr.(**string)
-		if !ok {
-			return errors.Errorf("I expected this struct field to be *string but is %T ", ns.fieldPtr)
+		switch fieldV := ns.fieldPtr.(type) {
+		case **string:
+			*fieldV = &s
+		case *string:
+			*fieldV = s
+		default:
+			return errors.Errorf("I expected this struct field to be *string or **string but is %T ", ns.fieldPtr)
 		}
-		*fieldV = &s
 		return nil
 	case time.Time:
-		fieldV, ok := ns.fieldPtr.(**time.Time)
-		if !ok {
-			return errors.Errorf("I expected this struct field to be *time.Time but is %T ", ns.fieldPtr)
+		switch fieldV := ns.fieldPtr.(type) {
+		case **time.Time:
+			*fieldV = &s
+		case *time.Time:
+			*fieldV = s
+		default:
+			return errors.Errorf("I expected this struct field to be *time.Time or **time.Time but is %T ", ns.fieldPtr)
 		}
-		*fieldV = &s
 		return nil
 	}
 	return errors.Errorf("I do not know how to fit a nillable %T into a %T", src, ns.fieldPtr)
@@ -295,7 +304,19 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 				logger:   logger,
 			}
 			continue
+		case string:
+			fieldRecipients[i] = &nullScanner{
+				fieldPtr: fieldPtrI,
+				logger:   logger,
+			}
+			continue
 		case *time.Time:
+			fieldRecipients[i] = &nullScanner{
+				fieldPtr: fieldPtrI,
+				logger:   logger,
+			}
+			continue
+		case time.Time:
 			fieldRecipients[i] = &nullScanner{
 				fieldPtr: fieldPtrI,
 				logger:   logger,

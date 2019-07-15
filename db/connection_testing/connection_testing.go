@@ -208,7 +208,7 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 	type row struct {
 		Id          int
 		Description string
-		NotUsed     *string
+		NotUsed     string
 		NotUsedTime *time.Time
 	}
 
@@ -267,12 +267,12 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 			t.FailNow()
 		}
 		if nu, ok := expectedNotUsed[i]; ok {
-			if oneRowMulti.NotUsed == nil {
-				t.Logf("expected NotUsed value, got nil")
+			if oneRowMulti.NotUsed == "" {
+				t.Logf("expected NotUsed value, got empty")
 				t.FailNow()
 			}
-			if *oneRowMulti.NotUsed != nu {
-				t.Logf("expected NotUsed value to be %s but is %s", nu, *oneRowMulti.NotUsed)
+			if oneRowMulti.NotUsed != nu {
+				t.Logf("expected NotUsed value to be %s but is %s", nu, oneRowMulti.NotUsed)
 				t.FailNow()
 			}
 		}
