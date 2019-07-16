@@ -481,7 +481,7 @@ func (d *DB) exec(statement string, args ...interface{}) (pgx.CommandTag, error)
 		}
 	}
 	if err != nil {
-		return connTag, errors.Wrapf(err, "querying database, obtained %s", connTag)
+		return connTag, errors.Wrapf(err, "querying database, obtained %v", connTag)
 	}
 	return connTag, nil
 }

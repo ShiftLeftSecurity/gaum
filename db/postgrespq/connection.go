@@ -488,7 +488,7 @@ func (d *DB) exec(statement string, args ...interface{}) (sql.Result, error) {
 		}
 	}
 	if err != nil {
-		return nil, errors.Wrapf(err, "querying database, obtained %s", connTag)
+		return nil, errors.Wrapf(err, "querying database, obtained %v", connTag)
 	}
 	return connTag, nil
 }
