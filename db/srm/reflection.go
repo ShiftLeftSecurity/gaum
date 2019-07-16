@@ -241,7 +241,7 @@ type nullScanner struct {
 }
 
 // Scan implements Scanner interface for strings and Time structs and adds special handling for
-// nill cases when the receiver struct member is not a pointer (notice that reflection here
+// nil cases when the receiver struct member is not a pointer (notice that reflection here
 // passes a pointer to the original member hence the double pointers for cases where it is
 // a pointer)
 func (ns *nullScanner) Scan(src interface{}) error {
