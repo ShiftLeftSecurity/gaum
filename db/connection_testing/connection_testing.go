@@ -208,8 +208,8 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 	type row struct {
 		Id          int
 		Description string
-		NotUsed     *string
-		NotUsedTime *time.Time
+		NotUsed     string
+		NotUsedTime time.Time
 	}
 
 	// Test Multiple row Iterator
@@ -245,6 +245,11 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 		2: "meh",
 		8: "meh8",
 	}
+
+	tTest, _ := time.Parse("2006-01-02", "1985-10-26") // the day marty goes back to the past
+	expectedNotUsedTime := map[int]time.Time{
+		10: tTest,
+	}
 	err = fetcher(&multiRow)
 	if err != nil {
 		t.Errorf("failed to fetch data: %v", err)
@@ -267,12 +272,23 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 			t.FailNow()
 		}
 		if nu, ok := expectedNotUsed[i]; ok {
-			if oneRowMulti.NotUsed == nil {
-				t.Logf("expected NotUsed value, got nil")
+			if oneRowMulti.NotUsed == "" {
+				t.Logf("expected NotUsed value, got empty")
 				t.FailNow()
 			}
-			if *oneRowMulti.NotUsed != nu {
-				t.Logf("expected NotUsed value to be %s but is %s", nu, *oneRowMulti.NotUsed)
+			if oneRowMulti.NotUsed != nu {
+				t.Logf("expected NotUsed value to be %s but is %s", nu, oneRowMulti.NotUsed)
+				t.FailNow()
+			}
+		}
+		if nud, ok := expectedNotUsedTime[i]; ok {
+			noTime := time.Time{}
+			if oneRowMulti.NotUsedTime == noTime {
+				t.Logf("expected NotUsedTime value, got empty")
+				t.FailNow()
+			}
+			if oneRowMulti.NotUsedTime.Year() != nud.Year() || oneRowMulti.NotUsedTime.Month() != nud.Month() || oneRowMulti.NotUsedTime.Day() != nud.Day() {
+				t.Logf("got date %v but expected %v", nud, oneRowMulti.NotUsedTime)
 				t.FailNow()
 			}
 		}
