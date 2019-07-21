@@ -101,7 +101,7 @@ func (o *OnUpdate) Set(args ...interface{}) *OnUpdate {
 		} else {
 			*o.operatorList = append(*o.operatorList, argList{
 				text: key + " = ?",
-				data: arg,
+				data: []interface{}{arg},
 			})
 		}
 	}
@@ -130,9 +130,10 @@ func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 // Where Adds Where condition to an update on conflict, does not return the OnUpdate because it
 // is intended to be the last part of the expresion.
 func (o *OnUpdate) Where(ec *ExpresionChain) {
-	whereCondition, whereArgs := ec.renderWhereRaw()
+	dst := &strings.Builder{}
+	whereArgs := ec.renderWhereRaw(dst)
 	*o.operatorList = append(*o.operatorList, argList{
-		text:        "WHERE " + whereCondition,
+		text:        "WHERE " + dst.String(),
 		data:        whereArgs,
 		termination: true,
 	})
@@ -141,7 +142,7 @@ func (o *OnUpdate) Where(ec *ExpresionChain) {
 // argList handles the messy argument collection work
 type argList struct {
 	text        string
-	data        interface{}
+	data        []interface{}
 	termination bool
 }
 
@@ -171,7 +172,7 @@ func (o *OnConflict) render() (string, []interface{}) {
 		}
 		localArgs = append(localArgs, arg.text)
 		if arg.data != nil {
-			outputArgs = append(outputArgs, arg.data)
+			outputArgs = append(outputArgs, arg.data...)
 		}
 	}
 
@@ -183,7 +184,7 @@ func (o *OnConflict) render() (string, []interface{}) {
 		}
 		terminationArgs = append(terminationArgs, arg.text)
 		if arg.data != nil {
-			outputArgs = append(outputArgs, arg.data)
+			outputArgs = append(outputArgs, arg.data...)
 		}
 	}
 

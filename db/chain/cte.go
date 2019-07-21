@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -35,21 +34,25 @@ func (ec *ExpresionChain) With(name string, cte *ExpresionChain) *ExpresionChain
 	return ec
 }
 
-func (ec *ExpresionChain) renderctes() (string, []interface{}, error) {
+func (ec *ExpresionChain) renderctes(dst *strings.Builder) ([]interface{}, error) {
 	if len(ec.ctes) == 0 {
-		return "", []interface{}{}, nil
+		return []interface{}{}, nil
 	}
+
 	args := []interface{}{}
-	queries := []string{}
+	dst.WriteString("WITH ")
 	for _, name := range ec.ctesOrder {
 		expr := ec.ctes[name]
-		cteQ, cteArgs, err := expr.render(true)
+		dst.WriteString(name)
+		dst.WriteString(" AS (")
+		cteArgs, err := expr.render(true, dst)
 		if err != nil {
-			return "", nil, errors.Wrapf(err, "rendering cte %s", name)
+			return nil, errors.Wrapf(err, "rendering cte %s", name)
 		}
-		queries = append(queries, fmt.Sprintf("%s AS (%s)", name, cteQ))
+		dst.WriteRune(')')
 		args = append(args, cteArgs...)
 	}
-	query := fmt.Sprintf("WITH %s", strings.Join(queries, ", "))
-	return query, args, nil
+	dst.WriteRune(' ')
+
+	return args, nil
 }

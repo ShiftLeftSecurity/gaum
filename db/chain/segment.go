@@ -15,8 +15,8 @@
 package chain
 
 import (
-	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/ShiftLeftSecurity/gaum/selectparse"
 )
@@ -122,11 +122,14 @@ func (q *querySegmentAtom) fields() []string {
 	return fields
 }
 
-func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool) (string, []interface{}) {
-	expresion := ""
+func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool,
+	dst *strings.Builder) []interface{} {
+
 	if !firstForSegment {
-		expresion = fmt.Sprintf(" %s", q.sqlBool)
+		dst.WriteRune(' ')
+		dst.WriteString(string(q.sqlBool))
 	}
-	expresion += fmt.Sprintf(" %s", q.expresion)
-	return expresion, q.arguments
+	dst.WriteRune(' ')
+	dst.WriteString(q.expresion)
+	return q.arguments
 }

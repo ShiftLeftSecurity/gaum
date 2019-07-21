@@ -161,8 +161,8 @@ func TestExpresionChain_Render(t *testing.T) {
 			name: "basic insert with nulls",
 			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": nil}).
 				Table("convenient_table"),
-			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3)",
-			wantArgs: []interface{}{"value1", 2, "NULL"},
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, NULL)",
+			wantArgs: []interface{}{"value1", 2},
 			wantErr:  false,
 		},
 		{
@@ -246,8 +246,8 @@ func TestExpresionChain_Render(t *testing.T) {
 				OnConflict(func(c *OnConflict) {
 					c.OnConstraint("id").DoNothing()
 				}),
-			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT id DO NOTHING",
-			wantArgs: []interface{}{"value1", "NULL", "blah"},
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, NULL, $2) ON CONFLICT ON CONSTRAINT id DO NOTHING",
+			wantArgs: []interface{}{"value1", "blah"},
 			wantErr:  false,
 		},
 		{
@@ -347,8 +347,8 @@ func TestExpresionChain_Render(t *testing.T) {
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
-			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
-			wantArgs: []interface{}{"value2", "NULL", "unpirulo", 1, 2, "pajarito"},
+			want:     "UPDATE convenient_table SET field1 = $1, field3 = NULL JOIN another_convenient_table ON pirulo = $2 WHERE field1 > $3 AND field2 = $4 AND field3 > $5",
+			wantArgs: []interface{}{"value2", "unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
 		{
