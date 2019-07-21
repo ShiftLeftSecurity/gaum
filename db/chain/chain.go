@@ -49,7 +49,7 @@ type ExpresionChain struct {
 
 	db connection.DB
 
-	formatter      *Formatter
+	formatter    *Formatter
 	minQuerySize uint64
 }
 
