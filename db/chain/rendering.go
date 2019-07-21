@@ -278,7 +278,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 	}
 
 	if !raw {
-		newQuery, argCount, err := PlaceholdersToPositional(query)
+		newQuery, argCount, err := PlaceholdersToPositional(query, len(args))
 		if err != nil {
 			return nil, errors.Wrap(err, "rendering query")
 		}
@@ -350,7 +350,7 @@ func (ec *ExpresionChain) renderInsert(raw bool, dst *strings.Builder) ([]interf
 	}
 
 	if !raw {
-		query, argCount, err := PlaceholdersToPositional(dst)
+		query, argCount, err := PlaceholdersToPositional(dst, len(args))
 		if err != nil {
 			return nil, errors.Wrap(err, "rendering insert")
 		}
@@ -435,7 +435,7 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool, dst *strings.Builder) ([]i
 	}
 
 	if !raw {
-		query, argCount, err := PlaceholdersToPositional(dst)
+		query, argCount, err := PlaceholdersToPositional(dst, len(args))
 		if err != nil {
 			return nil, errors.Wrap(err, "rendering insert")
 		}

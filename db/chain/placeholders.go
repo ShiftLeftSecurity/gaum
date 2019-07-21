@@ -2,6 +2,7 @@ package chain
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
@@ -121,13 +122,15 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 }
 
 // PlaceholdersToPositional converts ? in a query into $<argument number> which postgres expects
-func PlaceholdersToPositional(q *strings.Builder) (*strings.Builder, int, error) {
+func PlaceholdersToPositional(q *strings.Builder, argCount int) (*strings.Builder, int, error) {
 	// TODO: identify escaped questionmarks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
 	newQ := &strings.Builder{}
-	if newQ.Len() < q.Len() {
-		newQ.Grow(q.Len() - newQ.Len())
+	// new string should accomodate the digits we are adding for positional arguments.
+	renderedLenght := q.Len() + digitSize(argCount)
+	if newQ.Len() < renderedLenght {
+		newQ.Grow(renderedLenght - newQ.Len())
 	}
 
 	argCounter := 1
@@ -142,4 +145,21 @@ func PlaceholdersToPositional(q *strings.Builder) (*strings.Builder, int, error)
 	}
 
 	return newQ, argCounter - 1, nil
+}
+
+// digitSize returns the amount of digits required to represent the argument placeholders
+// of a query, not including the $ symbol, pg will not like more than max(uint16) arguments
+// but we won't enforce that here.
+func digitSize(argLen int) int {
+	var repSize int
+	argLenLen := int(len(strconv.Itoa(argLen)))
+	for i := 1; i < argLenLen; i++ {
+		a := (9 * int(math.Pow10(int(i)-1))) * i
+		repSize += a
+	}
+
+	pow10 := math.Pow10(int(argLenLen) - 1)
+	repSize += (argLen - (int(pow10) - 1)) * argLenLen
+
+	return repSize
 }
