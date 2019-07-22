@@ -239,7 +239,7 @@ func (d *DB) EQueryPrimitive(statement string, field string, args ...interface{}
 	return d.QueryPrimitive(s, field, a)
 }
 
-// QueryPrimitive returns a function that allowss recovering the results of the query but to a slice
+// QueryPrimitive returns a function that allows recovering the results of the query but to a slice
 // of a primitive type, only allowed if the query fetches one field.
 func (d *DB) QueryPrimitive(statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
 	var rows *pgx.Rows

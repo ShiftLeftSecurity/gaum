@@ -21,7 +21,7 @@ import (
 )
 
 // QueryIter is a convenience function to run the current chain through the db query with iterator.
-func (ec *ExpresionChain) QueryIter() (connection.ResultFetchIter, error) {
+func (ec *ExpressionChain) QueryIter() (connection.ResultFetchIter, error) {
 	if ec.hasErr() {
 		return nil, ec.getErr()
 	}
@@ -38,7 +38,7 @@ func (ec *ExpresionChain) QueryIter() (connection.ResultFetchIter, error) {
 }
 
 // Query is a convenience function to run the current chain through the db query with iterator.
-func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
+func (ec *ExpressionChain) Query() (connection.ResultFetch, error) {
 	if ec.hasErr() {
 		return nil, ec.getErr()
 	}
@@ -55,7 +55,7 @@ func (ec *ExpresionChain) Query() (connection.ResultFetch, error) {
 }
 
 // QueryPrimitive is a convenience function to run the current chain through the db query.
-func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
+func (ec *ExpressionChain) QueryPrimitive() (connection.ResultFetch, error) {
 	if ec.hasErr() {
 		return nil, ec.getErr()
 	}
@@ -77,14 +77,41 @@ func (ec *ExpresionChain) QueryPrimitive() (connection.ResultFetch, error) {
 	return ec.db.QueryPrimitive(q, fields[0], args...)
 }
 
+// Fetch is a one step version of the Query->fetch typical workflow.
+func (ec *ExpressionChain) Fetch(receiver interface{}) error {
+	fetch, err := ec.Query()
+	if err != nil {
+		return errors.Wrap(err, "querying")
+	}
+	err = fetch(receiver)
+	if err != nil {
+		return errors.Wrap(err, "fetching")
+	}
+
+	return nil
+}
+
+// FetchIntoPrimitive is a one step version of the QueryPrimitive->fetch typical workflow.
+func (ec *ExpressionChain) FetchIntoPrimitive(receiver interface{}) error {
+	fetch, err := ec.QueryPrimitive()
+	if err != nil {
+		return errors.Wrap(err, "querying")
+	}
+	err = fetch(receiver)
+	if err != nil {
+		return errors.Wrap(err, "fetching")
+	}
+	return nil
+}
+
 // Exec executes the chain, works for Insert and Update
-func (ec *ExpresionChain) Exec() (execError error) {
+func (ec *ExpressionChain) Exec() (execError error) {
 	_, err := ec.ExecResult()
 	return err
 }
 
 // ExecResult executes the chain and returns rows affected info, works for Insert and Update
-func (ec *ExpresionChain) ExecResult() (rowsAffected int64, execError error) {
+func (ec *ExpressionChain) ExecResult() (rowsAffected int64, execError error) {
 	if ec.hasErr() {
 		execError = ec.getErr()
 		return
@@ -130,7 +157,7 @@ func (ec *ExpresionChain) ExecResult() (rowsAffected int64, execError error) {
 
 // Raw executes the query and tries to scan the result into fields without much safeguard nor
 // intelligence so you will have to put some of your own
-func (ec *ExpresionChain) Raw(fields ...interface{}) error {
+func (ec *ExpressionChain) Raw(fields ...interface{}) error {
 	if ec.hasErr() {
 		return ec.getErr()
 	}
@@ -155,7 +182,7 @@ func (ec *ExpresionChain) Raw(fields ...interface{}) error {
 // TODO Add pg Copy feature where possible to handle large inserts.
 
 // queryable handles checking if the function returns any results
-func (ec *ExpresionChain) queryable() bool {
+func (ec *ExpressionChain) queryable() bool {
 	if ec.mainOperation.segment == sqlSelect {
 		return true
 	}

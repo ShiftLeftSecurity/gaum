@@ -1,7 +1,6 @@
 package chain
 
 import (
-	"fmt"
 	"math"
 	"reflect"
 	"strconv"
@@ -80,7 +79,7 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	// TODO: identify escaped questionmarks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
-	queryWithArgs := ""
+	queryWithArgs := &strings.Builder{}
 	argCounter := 1
 	argPositioner := 0
 	expandedArgs := []interface{}{}
@@ -92,33 +91,37 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 				elementType := reflect.TypeOf(arg).Elem().Kind()
 				if elementType != reflect.Int8 && elementType != reflect.Uint8 {
 					s := reflect.ValueOf(arg)
-					placeholders := []string{}
 					for i := 0; i < s.Len(); i++ {
 						expandedArgs = append(expandedArgs, s.Index(i).Interface())
-						placeholders = append(placeholders, fmt.Sprintf("$%d", argCounter))
+						queryWithArgs.WriteRune('$')
+						queryWithArgs.WriteString(strconv.Itoa(argCounter))
+						if i != s.Len()-1 {
+							queryWithArgs.WriteString(", ")
+						}
 						argCounter++
 					}
-					queryWithArgs += strings.Join(placeholders, ", ")
 				} else {
 					expandedArgs = append(expandedArgs, arg)
-					queryWithArgs += fmt.Sprintf("$%d", argCounter)
+					queryWithArgs.WriteRune('$')
+					queryWithArgs.WriteString(strconv.Itoa(argCounter))
 					argCounter++
 				}
 			default:
 				expandedArgs = append(expandedArgs, arg)
-				queryWithArgs += fmt.Sprintf("$%d", argCounter)
+				queryWithArgs.WriteRune('$')
+				queryWithArgs.WriteString(strconv.Itoa(argCounter))
 				argCounter++
 			}
 			argPositioner++
 		} else {
-			queryWithArgs += string(queryChar)
+			queryWithArgs.WriteRune(queryChar)
 		}
 	}
 	if len(expandedArgs) != argCounter-1 {
 		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
 			argCounter-1, len(args), queryWithArgs, args)
 	}
-	return queryWithArgs, expandedArgs, nil
+	return queryWithArgs.String(), expandedArgs, nil
 }
 
 // PlaceholdersToPositional converts ? in a query into $<argument number> which postgres expects

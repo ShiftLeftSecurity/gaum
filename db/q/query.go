@@ -148,19 +148,19 @@ func New(connectionString string, driver Driver,
 	if err != nil {
 		return nil, errors.Wrap(err, "opening a new connection to the database")
 	}
-	queryChain := c.NewExpresionChain(dbConnection)
+	queryChain := c.NewExpressionChain(dbConnection)
 	return &Q{query: queryChain}, nil
 }
 
 // NewFromDB crafts a new Q query containing the passed db connection.
 func NewFromDB(dbConnection connection.DB) (*Q, error) {
-	queryChain := c.NewExpresionChain(dbConnection)
+	queryChain := c.NewExpressionChain(dbConnection)
 	return &Q{query: queryChain}, nil
 }
 
 // Q is the intended struct for interaction with SQL Queries.
 type Q struct {
-	query *c.ExpresionChain
+	query *c.ExpressionChain
 }
 
 // Select converts the existing Q query into a `SELECT ...` SQL statement, query is the
@@ -264,7 +264,7 @@ func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
 
 // AndWhere adds a `WHERE` condition section that can be:
 //
-// * The first one (decided in arbitrary way among all `AndWhere` expresions)
+// * The first one (decided in arbitrary way among all `AndWhere` expressions)
 //
 // * One of many that will be pre-pend by `AND` if it's not the first
 //

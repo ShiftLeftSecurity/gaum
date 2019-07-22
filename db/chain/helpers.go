@@ -37,27 +37,27 @@ func SimpleFunction(fName, params string) string {
 	return fmt.Sprintf("%s(%s)", fName, params)
 }
 
-// AVG Renders SQL AVG of the expresion in column
+// AVG Renders SQL AVG of the expression in column
 func AVG(column string) string {
 	return SimpleFunction("AVG", column)
 }
 
-// COUNT Renders SQL COUNT of the expresion in column
+// COUNT Renders SQL COUNT of the expression in column
 func COUNT(column string) string {
 	return SimpleFunction("COUNT", column)
 }
 
-// MIN Renders SQL MIN of the expresion in column
+// MIN Renders SQL MIN of the expression in column
 func MIN(column string) string {
 	return SimpleFunction("MIN", column)
 }
 
-// MAX Renders SQL MAX of the expresion in column
+// MAX Renders SQL MAX of the expression in column
 func MAX(column string) string {
 	return SimpleFunction("MAX", column)
 }
 
-// SUM Renders SQL SUM of the expresion in column
+// SUM Renders SQL SUM of the expression in column
 func SUM(column string) string {
 	return SimpleFunction("SUM", column)
 }
@@ -137,7 +137,7 @@ func AndConditions(conditions ...string) string {
 	return strings.Join(conditions, " AND ")
 }
 
-// CompOperator represents a possible operator to compare two SQL expresions
+// CompOperator represents a possible operator to compare two SQL expressions
 type CompOperator string
 
 var (
@@ -159,8 +159,8 @@ var (
 	NLk CompOperator = "NOT LIKE"
 )
 
-// CompareExpresions returns a comparision between two SQL expresions using operator
-func CompareExpresions(operator CompOperator, columnLeft, columnRight string) string {
+// CompareExpressions returns a comparision between two SQL expressions using operator
+func CompareExpressions(operator CompOperator, columnLeft, columnRight string) string {
 	return fmt.Sprintf("%s %s %s", columnLeft, operator, columnRight)
 }
 
@@ -183,22 +183,6 @@ func NillableInt64(i *int64) int64 {
 // Constraint wraps the passed constraint name with the required SQL to use it.
 func Constraint(constraint string) string {
 	return "ON CONSTRAINT " + constraint
-}
-
-// Or replaces the chaining operation in the last segment atom by 'OR' or 'OR NOT' depending on
-// what the previous one was (either 'AND' or 'AND NOT') as long as the last operation is a
-// 'WHERE' segment atom.
-func Or(ec *ExpresionChain) *ExpresionChain {
-	ec.mutateLastBool(SQLOr)
-	return ec
-}
-
-// Not replaces the chaining operation in the last segment atom by 'AND NOT' or 'OR NOT' depending on
-// what the previous one was (either 'AND' or 'OR') as long as the last operation is a
-// 'WHERE' segment atom.
-func Not(ec *ExpresionChain) *ExpresionChain {
-	ec.mutateLastBool(SQLNot)
-	return ec
 }
 
 // Distinct allows selection of distinct results only.

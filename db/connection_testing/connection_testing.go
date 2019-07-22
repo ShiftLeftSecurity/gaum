@@ -28,7 +28,7 @@ import (
 
 // Cleanup deletes everything created for a test in the db
 func Cleanup(t *testing.T, db connection.DB) {
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Delete().Table("justforfun").AndWhere("id > ?", 10)
 	err := query.Exec()
 	if err != nil {
@@ -105,7 +105,7 @@ type NewDB func(t *testing.T) connection.DB
 
 func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 	db := newDB(t)
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
 
 	// Debug print query
@@ -147,7 +147,7 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 	closer()
 
 	// Test Multiple row Iterator
-	query = chain.NewExpresionChain(db)
+	query = chain.NewExpressionChain(db)
 	query.Select("id, description").Table("justforfun").OrderBy(chain.Asc("id"))
 	iter, err = query.QueryIter()
 	if err != nil {
@@ -213,7 +213,7 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 	}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("*").Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
 	if err != nil {
@@ -308,7 +308,7 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 	}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("id, description").Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
 	if err != nil {
@@ -370,7 +370,7 @@ func testConnector_QueryStar(t *testing.T, newDB NewDB) {
 	}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("*").Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
 	if err != nil {
@@ -423,7 +423,7 @@ func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 		Description string
 	}
 
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Insert(map[string]interface{}{
 		"id":          1,
 		"description": "this id already exists",
@@ -460,7 +460,7 @@ func testConnector_QueryNoRows(t *testing.T, newDB NewDB) {
 		Description string
 	}
 
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("*").AndWhere("id = ?", 99999999).Table("justforfun")
 
 	fetcher, err := query.Query()
@@ -484,7 +484,7 @@ func testConnector_Distinct(t *testing.T, newDB NewDB) {
 	}{}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	prefix := chain.TablePrefix("justforfun")
 	query.Select(chain.Distinct(prefix("id")), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
@@ -520,7 +520,7 @@ func testConnector_DistinctAs(t *testing.T, newDB NewDB) {
 	}{}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	prefix := chain.TablePrefix("justforfun")
 	query.Select(chain.As(chain.Distinct(prefix("id")), "renamed"), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.Query()
@@ -556,7 +556,7 @@ func testConnector_Raw(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
 	err := query.Raw(&aRow.Id, &aRow.Description)
 	if err != nil {
@@ -572,7 +572,7 @@ func testConnector_Raw(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 
-	query = chain.NewExpresionChain(db)
+	query = chain.NewExpressionChain(db)
 	query.Select("id, description").AndWhere("id = ?", 1)
 	err = query.Raw(&aRow.Id, &aRow.Description)
 	if err == nil {
@@ -590,7 +590,7 @@ func testConnector_Insert(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
@@ -602,7 +602,7 @@ func testConnector_Insert(t *testing.T, newDB NewDB) {
 	rand.Seed(time.Now().UnixNano())
 	tempID := rand.Intn(11000)
 
-	insertQuery := chain.NewExpresionChain(db)
+	insertQuery := chain.NewExpressionChain(db)
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
 	err = insertQuery.Exec()
@@ -636,7 +636,7 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query1 := query.Clone()
 	tempDescription := uuid.NewV4().String()
 	tempDescription1 := uuid.NewV4().String()
@@ -658,7 +658,7 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 	tempID := rand.Intn(11000)
 	tempID1 := tempID + 1
 
-	insertQuery := chain.NewExpresionChain(db)
+	insertQuery := chain.NewExpressionChain(db)
 	_, err = insertQuery.InsertMulti(map[string][]interface{}{
 		"description": []interface{}{tempDescription, tempDescription1},
 		"id":          []interface{}{tempID, tempID1},
@@ -708,7 +708,7 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
@@ -721,7 +721,7 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	tempID := rand.Intn(11000)
 
 	// First insert, this is to have a colliding value
-	insertQuery := chain.NewExpresionChain(db)
+	insertQuery := chain.NewExpressionChain(db)
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
 	err = insertQuery.Exec()
@@ -780,7 +780,7 @@ func testConnector_Transaction(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
@@ -798,7 +798,7 @@ func testConnector_Transaction(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 	// Let's try this with transactions
-	insertQuery := chain.NewExpresionChain(transactionalDB)
+	insertQuery := chain.NewExpressionChain(transactionalDB)
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
 	err = insertQuery.Exec()
@@ -877,7 +877,7 @@ func testConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 	query.Select("id").Table("justforfun").OrderBy(chain.Asc("id"))
 	fetcher, err := query.QueryPrimitive()
 	if err != nil {
@@ -920,7 +920,7 @@ func testConnector_Regression_Returning(t *testing.T, newDB NewDB) {
 	var oneID int64
 	var oneDescription string
 	// Test Multiple row Iterator
-	query := chain.NewExpresionChain(db)
+	query := chain.NewExpressionChain(db)
 
 	err := query.Insert(map[string]interface{}{
 		"id":          11,
@@ -968,7 +968,7 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	initialDesc1 := uuid.NewV4().String()
 	initialDesc2And3 := uuid.NewV4().String()
 
-	insertQuery := chain.NewExpresionChain(db)
+	insertQuery := chain.NewExpressionChain(db)
 	_, err := insertQuery.InsertMulti(
 		map[string][]interface{}{
 			"id":          []interface{}{tempID1, tempID2, tempID3},
@@ -993,7 +993,7 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	newDesc2And3 := uuid.NewV4().String()
 
 	// First test 0 rows affected.
-	updateQuery := chain.NewExpresionChain(db)
+	updateQuery := chain.NewExpressionChain(db)
 	updateQuery.UpdateMap(map[string]interface{}{"description": newDesc1}).
 		Table("justforfun").
 		AndWhere("id = ?", tempID1).
@@ -1009,7 +1009,7 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	}
 
 	// test 1 rows affected.
-	updateQuery = chain.NewExpresionChain(db)
+	updateQuery = chain.NewExpressionChain(db)
 	updateQuery.UpdateMap(map[string]interface{}{"id": tempID1, "description": newDesc1}).
 		Table("justforfun").
 		AndWhere("id = ?", tempID1).
@@ -1025,8 +1025,8 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	}
 
 	//test multiple rows affected
-	updateQuery = chain.NewExpresionChain(db)
-	updateQuery = chain.NewExpresionChain(db)
+	updateQuery = chain.NewExpressionChain(db)
+	updateQuery = chain.NewExpressionChain(db)
 	updateQuery.UpdateMap(map[string]interface{}{"description": newDesc2And3}).
 		Table("justforfun").
 		AndWhere("id = ? OR id = ?", tempID2, tempID3).
