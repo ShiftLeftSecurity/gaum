@@ -48,6 +48,16 @@ type ExpresionChain struct {
 	err      []error
 
 	db connection.DB
+
+	formatter      *Formatter
+	minQuerySize uint64
+}
+
+// SetMinQuerySize will make sure that at least <size> bytes (runes actually) are allocated
+// before rendering to avoid costly resize and copy operations while rendering, use only
+// if you know what you are doing, 0 uses go allocator.
+func (ec *ExpresionChain) SetMinQuerySize(size uint64) {
+	ec.minQuerySize = size
 }
 
 // Set will produce your chain to be run inside a Transaction and used for `SET LOCAL`
@@ -95,6 +105,10 @@ func (ec *ExpresionChain) Clone() *ExpresionChain {
 		ctes[k] = ec.ctes[k].Clone()
 		order[i] = k
 	}
+	newFormatter := Formatter{FormatTable: map[string]string{}}
+	for k, v := range ec.TablePrefixes().FormatTable {
+		newFormatter.FormatTable[k] = v
+	}
 	return &ExpresionChain{
 		limit:         limit,
 		offset:        offset,
@@ -105,6 +119,8 @@ func (ec *ExpresionChain) Clone() *ExpresionChain {
 		ctesOrder:     order,
 
 		db: ec.db,
+
+		formatter: &newFormatter,
 	}
 }
 
@@ -179,9 +195,12 @@ func (ec *ExpresionChain) mutateLastBool(operation sqlBool) {
 // other than WHEREs `(&ExpressionChain{}).AndWhere(...).OrWhere(...)`
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) AndWhereGroup(c *ExpresionChain) *ExpresionChain {
-	wheres, whereArgs := c.renderWhereRaw()
+	dst := &strings.Builder{}
+	dst.WriteRune('(')
+	whereArgs := c.renderWhereRaw(dst)
+	dst.WriteRune(')')
 	if len(whereArgs) > 0 {
-		return ec.AndWhere(fmt.Sprintf("(%s)", wheres), whereArgs...)
+		return ec.AndWhere(dst.String(), whereArgs...)
 	}
 	return ec
 }
@@ -192,9 +211,12 @@ func (ec *ExpresionChain) AndWhereGroup(c *ExpresionChain) *ExpresionChain {
 // other than WHEREs `(&ExpressionChain{}).AndWhere(...).OrWhere(...)`
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) OrWhereGroup(c *ExpresionChain) *ExpresionChain {
-	wheres, whereArgs := c.renderWhereRaw()
+	dst := &strings.Builder{}
+	dst.WriteRune('(')
+	whereArgs := c.renderWhereRaw(dst)
+	dst.WriteRune(')')
 	if len(whereArgs) > 0 {
-		return ec.OrWhere(fmt.Sprintf("(%s)", wheres), whereArgs...)
+		return ec.OrWhere(dst.String(), whereArgs...)
 	}
 	return ec
 }
@@ -203,6 +225,7 @@ func (ec *ExpresionChain) OrWhereGroup(c *ExpresionChain) *ExpresionChain {
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) AndWhere(expr string, args ...interface{}) *ExpresionChain {
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlWhere,
@@ -217,6 +240,7 @@ func (ec *ExpresionChain) AndWhere(expr string, args ...interface{}) *ExpresionC
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) OrWhere(expr string, args ...interface{}) *ExpresionChain {
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlWhere,
@@ -231,6 +255,7 @@ func (ec *ExpresionChain) OrWhere(expr string, args ...interface{}) *ExpresionCh
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) AndHaving(expr string, args ...interface{}) *ExpresionChain {
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlHaving,
@@ -245,6 +270,7 @@ func (ec *ExpresionChain) AndHaving(expr string, args ...interface{}) *Expresion
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) OrHaving(expr string, args ...interface{}) *ExpresionChain {
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlHaving,
@@ -290,9 +316,11 @@ func (ec *ExpresionChain) SelectWithArgs(fields ...SelectArgument) *ExpresionCha
 		statements[i] = v.Field
 		args = append(args, v.Args...)
 	}
+	var expr string
+	expr, args = ExpandArgs(args, strings.Join(statements, ", "))
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlSelect,
-		expresion: strings.Join(statements, ", "),
+		expresion: expr,
 		arguments: args,
 		sqlBool:   SQLNothing,
 	}
@@ -366,6 +394,8 @@ func (ec *ExpresionChain) InsertMulti(insertPairs map[string][]interface{}) (*Ex
 			position++
 		}
 	}
+
+	// No Escape Args for insert, it will be done upon render given its nature
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlInsertMulti,
 		expresion: strings.Join(exprKeys, ", "),
@@ -390,6 +420,8 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 	for i, k := range exprKeys {
 		exprValues[i] = insertPairs[k]
 	}
+
+	// No Escape Args for insert, it will be done upon render given its nature
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlInsert,
 		expresion: strings.Join(exprKeys, ", "),
@@ -404,6 +436,7 @@ func (ec *ExpresionChain) Insert(insertPairs map[string]interface{}) *ExpresionC
 //
 // NOTE: values of `nil` will be treated as `NULL`
 func (ec *ExpresionChain) Update(expr string, args ...interface{}) *ExpresionChain {
+	expr, args = ExpandArgs(args, expr)
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlUpdate,
 		expresion: expr,
@@ -432,6 +465,7 @@ func (ec *ExpresionChain) UpdateMap(exprMap map[string]interface{}) *ExpresionCh
 		args = append(args, exprMap[k])
 	}
 	expr := strings.Join(exprParts, ", ")
+	expr, args = ExpandArgs(args, expr)
 	ec.mainOperation = &querySegmentAtom{
 		segment:   sqlUpdate,
 		expresion: expr,
@@ -490,6 +524,7 @@ func (ec *ExpresionChain) Offset(offset int64) *ExpresionChain {
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) Join(expr, on string, args ...interface{}) *ExpresionChain {
 	expr = fmt.Sprintf("%s ON %s", expr, on)
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlJoin,
@@ -505,6 +540,7 @@ func (ec *ExpresionChain) Join(expr, on string, args ...interface{}) *ExpresionC
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) LeftJoin(expr, on string, args ...interface{}) *ExpresionChain {
 	expr = fmt.Sprintf("%s ON %s", expr, on)
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlLeftJoin,
@@ -520,6 +556,7 @@ func (ec *ExpresionChain) LeftJoin(expr, on string, args ...interface{}) *Expres
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) RightJoin(expr, on string, args ...interface{}) *ExpresionChain {
 	expr = fmt.Sprintf("%s ON %s", expr, on)
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlRightJoin,
@@ -535,6 +572,7 @@ func (ec *ExpresionChain) RightJoin(expr, on string, args ...interface{}) *Expre
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) InnerJoin(expr, on string, args ...interface{}) *ExpresionChain {
 	expr = fmt.Sprintf("%s ON %s", expr, on)
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlInnerJoin,
@@ -550,6 +588,7 @@ func (ec *ExpresionChain) InnerJoin(expr, on string, args ...interface{}) *Expre
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) FullJoin(expr, on string, args ...interface{}) *ExpresionChain {
 	expr = fmt.Sprintf("%s ON %s", expr, on)
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlFullJoin,
@@ -578,6 +617,7 @@ func (ec *ExpresionChain) OrderBy(order *OrderByOperator) *ExpresionChain {
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) GroupBy(expr string, args ...interface{}) *ExpresionChain {
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlGroup,
@@ -593,6 +633,7 @@ func (ec *ExpresionChain) GroupBy(expr string, args ...interface{}) *ExpresionCh
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpresionChain) GroupByReplace(expr string, args ...interface{}) *ExpresionChain {
 	ec.removeOfType(sqlGroup)
+	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
 			segment:   sqlGroup,
@@ -630,6 +671,16 @@ func (ec *ExpresionChain) Union(unionExpr string, all bool, args ...interface{})
 	}
 	ec.append(atom)
 	return ec
+}
+
+func segmentsPresent(ec *ExpresionChain, seg sqlSegment) int {
+	segmentCount := 0
+	for _, item := range ec.segments {
+		if item.segment == seg {
+			segmentCount++
+		}
+	}
+	return segmentCount
 }
 
 func extract(ec *ExpresionChain, seg sqlSegment) []querySegmentAtom {
