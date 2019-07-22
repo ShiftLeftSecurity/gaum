@@ -11,9 +11,9 @@ import (
 // of validity or consistency for the time being.
 func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	dst := &strings.Builder{}
-	if ec.oversizedQuery > 0 {
-		if uint64(dst.Len()) < ec.oversizedQuery {
-			dst.Grow(int(ec.oversizedQuery - uint64(dst.Len())))
+	if ec.minQuerySize > 0 {
+		if uint64(dst.Len()) < ec.minQuerySize {
+			dst.Grow(int(ec.minQuerySize - uint64(dst.Len())))
 		}
 	}
 	args, err := ec.render(false, dst)

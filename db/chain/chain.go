@@ -50,14 +50,14 @@ type ExpresionChain struct {
 	db connection.DB
 
 	formatter      *Formatter
-	oversizedQuery uint64
+	minQuerySize uint64
 }
 
 // SetMinQuerySize will make sure that at least <size> bytes (runes actually) are allocated
 // before rendering to avoid costly resize and copy operations while rendering, use only
 // if you know what you are doing, 0 uses go allocator.
 func (ec *ExpresionChain) SetMinQuerySize(size uint64) {
-	ec.oversizedQuery = size
+	ec.minQuerySize = size
 }
 
 // Set will produce your chain to be run inside a Transaction and used for `SET LOCAL`

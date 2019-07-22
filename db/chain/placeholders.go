@@ -128,9 +128,9 @@ func PlaceholdersToPositional(q *strings.Builder, argCount int) (*strings.Builde
 	// TODO: structure query segments around SQL-Standard AST
 	newQ := &strings.Builder{}
 	// new string should accomodate the digits we are adding for positional arguments.
-	renderedLenght := q.Len() + digitSize(argCount)
-	if newQ.Len() < renderedLenght {
-		newQ.Grow(renderedLenght - newQ.Len())
+	renderedLength := q.Len() + digitSize(argCount)
+	if newQ.Len() < renderedLength {
+		newQ.Grow(renderedLength - newQ.Len())
 	}
 
 	argCounter := 1
