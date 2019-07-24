@@ -16,8 +16,9 @@ package connection
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ShiftLeftSecurity/gaum/db/logging"
@@ -126,19 +127,20 @@ type DB interface {
 func EscapeArgs(query string, args []interface{}) (string, []interface{}, error) {
 	// TODO: make this a bit less ugly
 	// TODO: identify escaped questionmarks
-	queryWithArgs := ""
+	queryWithArgs := &strings.Builder{}
 	argCounter := 1
 	for _, queryChar := range query {
 		if queryChar == '?' {
-			queryWithArgs += fmt.Sprintf("$%d", argCounter)
+			queryWithArgs.WriteRune('$')
+			queryWithArgs.WriteString(strconv.Itoa(argCounter))
 			argCounter++
 		} else {
-			queryWithArgs += string(queryChar)
+			queryWithArgs.WriteRune(queryChar)
 		}
 	}
 	if len(args) != argCounter-1 {
 		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
 			argCounter-1, len(args), queryWithArgs, args)
 	}
-	return queryWithArgs, args, nil
+	return queryWithArgs.String(), args, nil
 }

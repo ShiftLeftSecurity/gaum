@@ -19,7 +19,7 @@ import "github.com/pkg/errors"
 // Group allows to group a set of expressions and run them together
 // in a transaction.
 type Group struct {
-	chains []*ExpresionChain
+	chains []*ExpressionChain
 	set    string
 }
 
@@ -30,7 +30,7 @@ func (cg *Group) Set(set string) {
 }
 
 // Add appends a chain to the group.
-func (cg *Group) Add(ec *ExpresionChain) {
+func (cg *Group) Add(ec *ExpressionChain) {
 	cg.chains = append(cg.chains, ec)
 }
 

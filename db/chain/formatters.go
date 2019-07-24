@@ -1,3 +1,5 @@
+package chain
+
 //    Copyright 2019 Horacio Duran <horacio@shiftleft.io>, ShiftLeft Inc.
 //
 //    Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,9 +14,8 @@
 //    See the License for the specific language governing permissions and
 //    limitations under the License.
 
-package chain
-
 import (
+	"bytes"
 	"io"
 	"text/template"
 
@@ -29,7 +30,7 @@ type Formatter struct {
 
 // TablePrefixes returns the formatter for this expression, if none exists one will be
 // created
-func (ec *ExpresionChain) TablePrefixes() *Formatter {
+func (ec *ExpressionChain) TablePrefixes() *Formatter {
 	if ec.formatter == nil {
 		ec.formatter = &Formatter{
 			FormatTable: map[string]string{},
@@ -38,8 +39,22 @@ func (ec *ExpresionChain) TablePrefixes() *Formatter {
 	return ec.formatter
 }
 
-func (ec *ExpresionChain) populateTablePrefixes() error {
-	return nil
+func (ec *ExpressionChain) populateTablePrefixes(expr string) string {
+	if ec.formatter == nil || len(ec.formatter.FormatTable) == 0 {
+		return expr
+	}
+	// Let's change delimitators to make it shorter, almost pythonic :p
+	tmpl, err := template.New("sqlexp").Delims("{", "}").Parse(expr)
+	if err != nil {
+		// if this is not a valid go template so be it, let's assume user knows best.
+		return expr
+	}
+	var result bytes.Buffer
+	err = tmpl.Execute(&result, ec.formatter.FormatTable)
+	if err != nil {
+		return expr
+	}
+	return result.String()
 }
 
 func (f *Formatter) format(src string, dst io.Writer) error {

@@ -21,9 +21,9 @@ import (
 //    limitations under the License.
 
 // With adds a CTE to your query (https://www.postgresql.org/docs/11/queries-with.html)
-func (ec *ExpresionChain) With(name string, cte *ExpresionChain) *ExpresionChain {
+func (ec *ExpressionChain) With(name string, cte *ExpressionChain) *ExpressionChain {
 	if len(ec.ctes) == 0 {
-		ec.ctes = map[string]*ExpresionChain{}
+		ec.ctes = map[string]*ExpressionChain{}
 		ec.ctesOrder = []string{}
 	}
 	_, ok := ec.ctes[name]
@@ -34,7 +34,7 @@ func (ec *ExpresionChain) With(name string, cte *ExpresionChain) *ExpresionChain
 	return ec
 }
 
-func (ec *ExpresionChain) renderctes(dst *strings.Builder) ([]interface{}, error) {
+func (ec *ExpressionChain) renderctes(dst *strings.Builder) ([]interface{}, error) {
 	if len(ec.ctes) == 0 {
 		return []interface{}{}, nil
 	}

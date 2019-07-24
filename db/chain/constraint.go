@@ -128,8 +128,8 @@ func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 }
 
 // Where Adds Where condition to an update on conflict, does not return the OnUpdate because it
-// is intended to be the last part of the expresion.
-func (o *OnUpdate) Where(ec *ExpresionChain) {
+// is intended to be the last part of the expression.
+func (o *OnUpdate) Where(ec *ExpressionChain) {
 	dst := &strings.Builder{}
 	whereArgs := ec.renderWhereRaw(dst)
 	*o.operatorList = append(*o.operatorList, argList{

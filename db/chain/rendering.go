@@ -1,5 +1,19 @@
 package chain
 
+//    Copyright 2019 Horacio Duran <horacio@shiftleft.io>, ShiftLeft Inc.
+//
+//    Licensed under the Apache License, Version 2.0 (the "License");
+//    you may not use this file except in compliance with the License.
+//    You may obtain a copy of the License at
+//
+//        http://www.apache.org/licenses/LICENSE-2.0
+//
+//    Unless required by applicable law or agreed to in writing, software
+//    distributed under the License is distributed on an "AS IS" BASIS,
+//    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//    See the License for the specific language governing permissions and
+//    limitations under the License.
+
 import (
 	"fmt"
 	"strings"
@@ -7,9 +21,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Render returns the SQL expresion string and the arguments of said expresion, there is no checkig
+// Render returns the SQL expression string and the arguments of said expression, there is no checkig
 // of validity or consistency for the time being.
-func (ec *ExpresionChain) Render() (string, []interface{}, error) {
+func (ec *ExpressionChain) Render() (string, []interface{}, error) {
 	dst := &strings.Builder{}
 	if ec.minQuerySize > 0 {
 		if uint64(dst.Len()) < ec.minQuerySize {
@@ -23,9 +37,9 @@ func (ec *ExpresionChain) Render() (string, []interface{}, error) {
 	return dst.String(), args, nil
 }
 
-// RenderRaw returns the SQL expresion string and the arguments of said expresion,
+// RenderRaw returns the SQL expression string and the arguments of said expression,
 // No positional argument replacement is done.
-func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
+func (ec *ExpressionChain) RenderRaw() (string, []interface{}, error) {
 	dst := &strings.Builder{}
 	args, err := ec.render(true, dst)
 	if err != nil {
@@ -35,7 +49,7 @@ func (ec *ExpresionChain) RenderRaw() (string, []interface{}, error) {
 }
 
 // String implements the stringer interface. It is intended to be used for logging/debugging purposes only.
-func (ec *ExpresionChain) String() string {
+func (ec *ExpressionChain) String() string {
 	// best effort to render the query
 	strQuery, args, err := ec.Render()
 	if err != nil {
@@ -44,9 +58,9 @@ func (ec *ExpresionChain) String() string {
 	return fmt.Sprintf("query: %s, args: %v", strQuery, args)
 }
 
-// renderWhereRaw renders only the where portion of an ExpresionChain and returns it without
+// renderWhereRaw renders only the where portion of an ExpressionChain and returns it without
 // placeholder markers replaced.
-func (ec *ExpresionChain) renderWhereRaw(dst *strings.Builder) []interface{} {
+func (ec *ExpressionChain) renderWhereRaw(dst *strings.Builder) []interface{} {
 	// WHERE
 	wheres := extract(ec, sqlWhere)
 	// Separate where statements that are not ANDed since they will need
@@ -73,9 +87,9 @@ func (ec *ExpresionChain) renderWhereRaw(dst *strings.Builder) []interface{} {
 	return nil
 }
 
-// renderHavingRaw renders only the HAVING portion of an ExpresionChain and returns it without
+// renderHavingRaw renders only the HAVING portion of an ExpressionChain and returns it without
 // placeholder markers replaced.
-func (ec *ExpresionChain) renderHavingRaw(dst *strings.Builder) []interface{} {
+func (ec *ExpressionChain) renderHavingRaw(dst *strings.Builder) []interface{} {
 	// HAVING
 	havings := extract(ec, sqlHaving)
 	// Separate having statements that are not ANDed since they will need
@@ -105,7 +119,7 @@ func (ec *ExpresionChain) renderHavingRaw(dst *strings.Builder) []interface{} {
 
 // render returns the rendered expression along with an arguments list and all marker placeholders
 // replaced by their positional placeholder.
-func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{}, error) {
+func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface{}, error) {
 	args := []interface{}{}
 	if ec.mainOperation == nil {
 		return nil, errors.Errorf("missing main operation to perform on the db")
@@ -137,25 +151,25 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 		if ec.table == "" {
 			return nil, errors.Errorf("no table specified for update")
 		}
-		expresion := ec.mainOperation.expresion
-		if len(expresion) == 0 {
-			return nil, errors.Errorf("empty update expresion")
+		expression := ec.mainOperation.expression
+		if len(expression) == 0 {
+			return nil, errors.Errorf("empty update expression")
 		}
 		query.WriteString("UPDATE ")
 		query.WriteString(ec.table)
 		query.WriteString(" SET ")
-		query.WriteString(ec.mainOperation.expresion)
+		query.WriteString(ec.mainOperation.expression)
 		args = append(args, ec.mainOperation.arguments...)
 
 	// SELECT, DELETE
 	case sqlSelect, sqlDelete:
-		expresion := ec.mainOperation.expresion
-		if len(expresion) == 0 {
-			expresion = "*"
+		expression := ec.mainOperation.expression
+		if len(expression) == 0 {
+			expression = "*"
 		}
 		if ec.mainOperation.segment == sqlSelect {
 			query.WriteString("SELECT ")
-			query.WriteString(expresion)
+			query.WriteString(expression)
 		} else {
 			query.WriteString("DELETE ")
 		}
@@ -186,7 +200,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 				query.WriteRune(' ')
 				query.WriteString(string(join.segment))
 				query.WriteRune(' ')
-				query.WriteString(join.expresion)
+				query.WriteString(join.expression)
 				args = append(args, join.arguments...)
 			}
 		}
@@ -203,7 +217,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 	if len(groups) != 0 {
 		query.WriteString(" GROUP BY ")
 		for i, item := range groups {
-			expr := item.expresion
+			expr := item.expression
 			if len(item.arguments) != 0 {
 				args = append(args, item.arguments...)
 			}
@@ -226,7 +240,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 		query.WriteString(" ORDER BY ")
 		orders := extract(ec, sqlOrder)
 		for i, item := range orders {
-			query.WriteString(item.expresion)
+			query.WriteString(item.expression)
 			args = append(args, item.arguments...)
 			if i != len(orders)-1 {
 				query.WriteString(", ")
@@ -241,7 +255,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 			continue
 		}
 		query.WriteRune(' ')
-		query.WriteString(segment.expresion)
+		query.WriteString(segment.expression)
 		if len(segment.arguments) > 0 {
 			args = append(args, segment.arguments...)
 		}
@@ -249,13 +263,13 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 
 	if ec.limit != nil {
 		query.WriteString(" LIMIT ")
-		query.WriteString(ec.limit.expresion)
+		query.WriteString(ec.limit.expression)
 		args = append(args, ec.limit.arguments...)
 	}
 
 	if ec.offset != nil {
 		query.WriteString(" OFFSET ")
-		query.WriteString(ec.offset.expresion)
+		query.WriteString(ec.offset.expression)
 		args = append(args, ec.offset.arguments...)
 	}
 
@@ -268,7 +282,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 				query.WriteString(string(item.sqlModifier))
 				query.WriteRune(' ')
 			}
-			query.WriteString(item.expresion)
+			query.WriteString(item.expression)
 
 			if len(item.arguments) != 0 {
 				args = append(args, item.arguments...)
@@ -294,7 +308,7 @@ func (ec *ExpresionChain) render(raw bool, query *strings.Builder) ([]interface{
 
 // RenderInsert does render for the very particular case of insert
 // NOTE: These values are never passed through ExpandArgs since it makes no sense
-func (ec *ExpresionChain) renderInsert(raw bool, dst *strings.Builder) ([]interface{}, error) {
+func (ec *ExpressionChain) renderInsert(raw bool, dst *strings.Builder) ([]interface{}, error) {
 	if ec.table == "" {
 		return nil, errors.Errorf("no table specified for this insert")
 	}
@@ -304,7 +318,7 @@ func (ec *ExpresionChain) renderInsert(raw bool, dst *strings.Builder) ([]interf
 	dst.WriteString("INSERT INTO ")
 	dst.WriteString(ec.table)
 	dst.WriteString(" (")
-	dst.WriteString(ec.mainOperation.expresion)
+	dst.WriteString(ec.mainOperation.expression)
 	dst.WriteString(") VALUES (")
 	for i := range ec.mainOperation.arguments {
 		if ec.mainOperation.arguments[i] == nil {
@@ -341,7 +355,7 @@ func (ec *ExpresionChain) renderInsert(raw bool, dst *strings.Builder) ([]interf
 			continue
 		}
 		dst.WriteRune(' ')
-		dst.WriteString(segment.expresion)
+		dst.WriteString(segment.expression)
 
 		// add arguments
 		if len(segment.arguments) > 0 {
@@ -365,11 +379,11 @@ func (ec *ExpresionChain) renderInsert(raw bool, dst *strings.Builder) ([]interf
 }
 
 // renderInsertMulti does render for the very particular case of a multiple insertion
-func (ec *ExpresionChain) renderInsertMulti(raw bool, dst *strings.Builder) ([]interface{}, error) {
+func (ec *ExpressionChain) renderInsertMulti(raw bool, dst *strings.Builder) ([]interface{}, error) {
 	if ec.table == "" {
 		return nil, errors.Errorf("no table specified for this insert")
 	}
-	argCount := strings.Count(ec.mainOperation.expresion, ",") + 1
+	argCount := strings.Count(ec.mainOperation.expression, ",") + 1
 
 	if argCount == 0 {
 		return []interface{}{}, nil
@@ -377,13 +391,13 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool, dst *strings.Builder) ([]i
 	dst.WriteString("INSERT INTO ")
 	dst.WriteString(ec.table)
 	dst.WriteRune('(')
-	dst.WriteString(ec.mainOperation.expresion)
+	dst.WriteString(ec.mainOperation.expression)
 	dst.WriteString(") VALUES ")
 
 	valueGroupCount := len(ec.mainOperation.arguments) / argCount
 	for i := 0; i < valueGroupCount; i++ {
 		dst.WriteRune('(')
-		for j := 0; j > argCount; j++ {
+		for j := 0; j < argCount; j++ {
 			if ec.mainOperation.arguments[i*(j+1)] == nil {
 				dst.WriteString("NULL")
 			} else {
@@ -426,7 +440,7 @@ func (ec *ExpresionChain) renderInsertMulti(raw bool, dst *strings.Builder) ([]i
 			continue
 		}
 		dst.WriteRune(' ')
-		dst.WriteString(segment.expresion)
+		dst.WriteString(segment.expression)
 
 		// add arguments
 		if len(segment.arguments) > 0 {

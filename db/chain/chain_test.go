@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestExpresionChain_Render(t *testing.T) {
+func TestExpressionChain_Render(t *testing.T) {
 	type fields struct {
 		lock          sync.Mutex
 		segments      []querySegmentAtom
@@ -32,14 +32,14 @@ func TestExpresionChain_Render(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		chain    *ExpresionChain
+		chain    *ExpressionChain
 		want     string
 		wantArgs []interface{}
 		wantErr  bool
 	}{
 		{
 			name: "basic selection with where",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -49,8 +49,23 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic selection with table prefix",
+			chain: func() *ExpressionChain {
+				c := NewNoDB()
+				c.TablePrefixes().Add("t1", "really_long_alias")
+				c.TablePrefixes().Add("t2", "other_really_long_aliasalias")
+				c.Select("{.t1}.field1, {.t1}.field2, {.t2}.field1").
+					From("tablename AS really_long_alias").
+					Join("othertable AS other_really_long_aliasalias", "{.t1}.field1 = {.t2}.fieldx")
+				return c
+			}(),
+			want:     "SELECT really_long_alias.field1, really_long_alias.field2, other_really_long_aliasalias.field1 FROM tablename AS really_long_alias JOIN othertable AS other_really_long_aliasalias ON really_long_alias.field1 = other_really_long_aliasalias.fieldx",
+			wantArgs: []interface{}{},
+			wantErr:  false,
+		},
+		{
 			name: "basic selection with where and helpers",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere(GreaterThan("field1"), 1).
 				AndWhere(Equals("field2"), 2).
@@ -64,7 +79,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with or where",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -75,7 +90,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with or having",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -88,18 +103,18 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with nested where",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
-				OrWhereGroup((&ExpresionChain{}).AndWhere("inner = ?", 1).AndWhere("inner2 > ?", 2)),
+				OrWhereGroup(NewNoDB().AndWhere("inner = ?", 1).AndWhere("inner2 > ?", 2)),
 			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR ( inner = $3 AND inner2 > $4)",
 			wantArgs: []interface{}{1, 2, 1, 2},
 			wantErr:  false,
 		},
 		{
 			name: "basic selection with where and join",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -111,7 +126,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with distinct",
-			chain: (&ExpresionChain{}).Select(Distinct("field1")).
+			chain: NewNoDB().Select(Distinct("field1")).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1),
 			want:     "SELECT DISTINCT field1 FROM convenient_table WHERE field1 > $1",
@@ -120,7 +135,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with distinct as",
-			chain: (&ExpresionChain{}).Select(As(Distinct("field1"), "renamed")).
+			chain: NewNoDB().Select(As(Distinct("field1"), "renamed")).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1),
 			want:     "SELECT DISTINCT field1 AS renamed FROM convenient_table WHERE field1 > $1",
@@ -129,7 +144,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with not / like",
-			chain: (&ExpresionChain{}).Select("field1", "field2").
+			chain: NewNoDB().Select("field1", "field2").
 				Table("convenient_table").
 				AndWhere(Like("field1"), "%hello%").
 				AndWhere(NotLike("field2"), "%world%"),
@@ -139,7 +154,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic deletion with where and join",
-			chain: (&ExpresionChain{}).Delete().
+			chain: NewNoDB().Delete().
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -151,15 +166,33 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert",
-			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
+			chain: NewNoDB().Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table"),
 			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, $3)",
 			wantArgs: []interface{}{"value1", 2, "blah"},
 			wantErr:  false,
 		},
 		{
+			name: "basic insert multi",
+			chain: func() *ExpressionChain {
+				cn, err := NewNoDB().InsertMulti(map[string][]interface{}{
+					"field1": []interface{}{"value1", "value1.1"},
+					"field2": []interface{}{2, 22},
+					"field3": []interface{}{"blah", "blah2"}})
+				if err != nil {
+					t.Logf("insert multi failed: %v", err)
+					t.FailNow()
+				}
+				cn.Table("convenient_table")
+				return cn
+			}(),
+			want:     "INSERT INTO convenient_table(field1, field2, field3) VALUES ($1, $2, $3), ($4, $5, $6)",
+			wantArgs: []interface{}{"value1", 2, "blah", "value1.1", 22, "blah2"},
+			wantErr:  false,
+		},
+		{
 			name: "basic insert with nulls",
-			chain: (&ExpresionChain{}).Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": nil}).
+			chain: NewNoDB().Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": nil}).
 				Table("convenient_table"),
 			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, NULL)",
 			wantArgs: []interface{}{"value1", 2},
@@ -167,7 +200,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert with conflict on column",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -179,7 +212,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "advanced insert with conflict on column",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -191,7 +224,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert with conflict on constraint",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -203,7 +236,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert with default conflict",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -215,7 +248,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "complex insert with an update to default clause",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "foo"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -227,7 +260,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "NOW THIS IS PODRACING!! Upsert WITH returning data",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -240,7 +273,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic insert with conflict on constraint with nulls",
-			chain: (&ExpresionChain{}).
+			chain: NewNoDB().
 				Insert(map[string]interface{}{"field1": "value1", "field2": nil, "field3": "blah"}).
 				Table("convenient_table").
 				OnConflict(func(c *OnConflict) {
@@ -252,7 +285,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "selection with where and join and order by",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -265,7 +298,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with flavors of JOIN",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -282,7 +315,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with where and join and group by",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -295,7 +328,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with where and join and group by and limit and offset",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -310,7 +343,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic update with where and join",
-			chain: (&ExpresionChain{}).Update("field1 = ?, field3 = ?", "value2", 9).
+			chain: NewNoDB().Update("field1 = ?, field3 = ?", "value2", 9).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -322,7 +355,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "update with bytea data",
-			chain: (&ExpresionChain{}).Update("field1 = ?", []byte{0xde, 0xed, 0xbe, 0xef}).
+			chain: NewNoDB().Update("field1 = ?", []byte{0xde, 0xed, 0xbe, 0xef}).
 				Table("convenient_table").
 				Returning("*"),
 			want:     "UPDATE convenient_table SET field1 = $1 RETURNING *",
@@ -331,7 +364,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic update with RETURNING",
-			chain: (&ExpresionChain{}).Update("status = ?", 9).
+			chain: NewNoDB().Update("status = ?", 9).
 				Table("convenient_table").
 				AndWhere("value IN (?, ?)", 1, 2).
 				Returning("*"),
@@ -341,7 +374,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic update with where and join",
-			chain: (&ExpresionChain{}).Update("field1 = ?, field3 = ?", "value2", nil).
+			chain: NewNoDB().Update("field1 = ?, field3 = ?", "value2", nil).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -353,7 +386,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic update with where and join but using map",
-			chain: (&ExpresionChain{}).UpdateMap(map[string]interface{}{"field1": "value2", "field3": 9}).
+			chain: NewNoDB().UpdateMap(map[string]interface{}{"field1": "value2", "field3": 9}).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -365,7 +398,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "heavy query",
-			chain: (&ExpresionChain{}).Table("table1").
+			chain: NewNoDB().Table("table1").
 				Select("table1.field1",
 					"table1.field2",
 					"table1.field3",
@@ -408,13 +441,13 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "insert returning with where, a bit of everything",
-			chain: (&ExpresionChain{}).Insert(map[string]interface{}{
+			chain: NewNoDB().Insert(map[string]interface{}{
 				"field1": "somethingelse",
 				"field2": 2,
 			}).
 				Table("atablename").OnConflict(func(c *OnConflict) {
 				c.OnColumn("field1").DoUpdate().SetSQL("field2", "atablename.field2 + 1").
-					Where((&ExpresionChain{}).AndWhere(Equals("atablename.field1"), "something"))
+					Where(NewNoDB().AndWhere(Equals("atablename.field1"), "something"))
 			}).
 				Returning("atablename.field2"),
 			want:     "INSERT INTO atablename (field1, field2) VALUES ($1, $2) ON CONFLICT ( field1 ) DO UPDATE SET (field2) = (atablename.field2 + 1) WHERE  atablename.field1 = $3 RETURNING atablename.field2",
@@ -423,8 +456,8 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with CTEs",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
-				With("a_cte", (&ExpresionChain{}).Select("*").From("some_table_in_cte")).
+			chain: NewNoDB().Select("field1", "field2", "field3").
+				With("a_cte", NewNoDB().Select("*").From("some_table_in_cte")).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -435,8 +468,8 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "basic selection with CTEs with args",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
-				With("a_cte", (&ExpresionChain{}).Select("*").From("some_table_in_cte").AndWhere("a_field = ?", "ctevalue")).
+			chain: NewNoDB().Select("field1", "field2", "field3").
+				With("a_cte", NewNoDB().Select("*").From("some_table_in_cte").AndWhere("a_field = ?", "ctevalue")).
 				Table("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -447,7 +480,7 @@ func TestExpresionChain_Render(t *testing.T) {
 		},
 		{
 			name: "Union with text query",
-			chain: (&ExpresionChain{}).Select("field1", "field2", "field3").
+			chain: NewNoDB().Select("field1", "field2", "field3").
 				From("convenient_table").
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
@@ -458,15 +491,15 @@ func TestExpresionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name: "Union from expresion",
-			chain: func() *ExpresionChain {
-				ec := (&ExpresionChain{}).Select("field1", "field2", "field3").
+			name: "Union from expression",
+			chain: func() *ExpressionChain {
+				ec := NewNoDB().Select("field1", "field2", "field3").
 					From("convenient_table").
 					AndWhere("field1 > ?", 1).
 					AndWhere("field2 = ?", 2).
 					AndWhere("field3 > ?", "pajarito")
 				ec, err := ec.AddUnionFromChain(
-					(&ExpresionChain{}).Select("fieldu1", "fieldu2", "fieldu3").
+					NewNoDB().Select("fieldu1", "fieldu2", "fieldu3").
 						From("convenient_table").
 						AndWhere("field1 > ?", 10).
 						AndWhere("field2 = ?", 20).
@@ -486,14 +519,14 @@ func TestExpresionChain_Render(t *testing.T) {
 			ec := tt.chain
 			got, got1, err := ec.Render()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ExpresionChain.Render() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ExpressionChain.Render() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ExpresionChain.Render() \ngot %q, \nwant %q", got, tt.want)
+				t.Errorf("ExpressionChain.Render() \ngot %q, \nwant %q", got, tt.want)
 			}
 			if !reflect.DeepEqual(got1, tt.wantArgs) {
-				t.Errorf("ExpresionChain.Render() got1 %v, want %v", got1, tt.wantArgs)
+				t.Errorf("ExpressionChain.Render() got1 %v, want %v", got1, tt.wantArgs)
 			}
 		})
 	}

@@ -11,7 +11,7 @@ This library is, as it's name indicates, a bare minimum. It is not a "drop in" r
 How to use it, there are two components that can be used separately:
 
  * [The DB connector](#db): Which allows interaction with the underlying DB, it adds almost nothing to the underlying API but some minor level of magic when fetching the data and a set of helpers to convert from the more practical `?` argument placeholders to the numbered positionals required by the DB `$1, $2,....` with a few convenient expansions like making `(?)` into `($1...n)` based on the passed arguments (with limitations).
- * [The Chain](#chain): Provides a set of convenience functions and methods that allows chaning and combining to produce a struct that can render itself into a consistent SQL query (the promise is that the same object renders itself into the same SQL object each)
+ * [The Chain](#chain): Provides a set of convenience functions and methods that allows chaining and combining to produce a struct that can render itself into a consistent SQL query (the promise is that the same object renders itself into the same SQL object each time).
 
  ## DB
  
@@ -96,6 +96,9 @@ DB.Clone returns a deep copy of the db.
 
 EscapeArgs is in the wrong place in the code, but will do for now. This is something to be known before any querying function. To avoid the hassle of having to put `$<argnumber>` in each query argument placeholder, the convenience gorm provides was taken and it's possible to use `?` as a placeholder. To allow for our lazy side to take over, we need to invoke EscapeArgs on the query and args to both check for number of arg consistency and properly escape the placeholders before calling any of the queries, now for all of these functions, there is also another with the same name provided with an `E` prepend that invokes [EscapeArgs](#escapeargs) for you.
 
+A more useful and feature complete of [EscapeArgs](#escapeargs) can be found in `chain.MarksToPlaceholders` that will not only convert `?` signs into positional arguments that the db accepts but also unwrap slice arguments where appropriate and returns the expanded list of arguments.
+
+
 #### [DB](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB).[EQueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.EQueryIter)
 
 ( See [EscapeArgs](#escapeargs) And [QueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB.QueryIter) )
@@ -146,27 +149,29 @@ This has not yet been tested, it's intention is to use the `COPY` statement.
  
 ## Chain
 
-Chain is intended to ease the burden of SQL by hand (just kidding, I love SQL) and add a small layer of compile and pre-query time checks.
+The Chain (poor decision on my part used the very long `ExpressionChain` name) is the main SQL building element, it is an object that contains enough information to render itself into a SQL query and invoke the database with it optionally. The object itself has a plethora of methods that mutate its attributes with the different parts of a query and allow easy manipulation, unlike working with just string concatenation and also providing some of the safety and syntax of go.
 
-To use a [`Chain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain) you must create one with [`NewExpresionChain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NewExpresionChain)
+To use a [`Chain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain) you must create one with [`chain.New`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#New) if you want it to be able to also invoke the DB or [`chain.NewNoDB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NewNoDB) if you don't need (such as to formulate sub-queries, CTEs, Where Groups and others that we will see ahead)
 
-Crafting the SQL is made by just calling the corresponding methods for the SQL we want added, the changes happen in place, the call returns nevertheless a pointer to it's own struct so it is more natural to chain commands.
+Crafting the SQL is achieved by just calling the corresponding methods that abstract the SQL we want added, the changes mutate the [`Chain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain) object itself, most of them return nevertheless a pointer to it's own so it is more natural to chain commands (ie: `chain.New(db).Select("field1" ,"field2").From("a_table").AndWhere("a_condition = ?", 1)`).
 
-`SELECT`, `INSERT`, `UPDATE`, `DELETE` and any other exclusive SQL keywords will replace the existing one as the chain will have a main operation.
+The methods that generate the SQL verbs such as `SELECT`, `INSERT`, `UPDATE`, `DELETE` and any other exclusive SQL keywords will set what we call the main operation and replace each other when invoked unlike modificators such as `WHERE`, `JOIN`, etc.
 
-[The main reference](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain)
+Note: Currently `FROM` which is manipulated by `.From` or `.Table` methods will also replace existing ones instead of appending, this might change in the near future but plans for it are not yet clear. 
+
+For fine details on the chain object you can check [the main reference](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain)
 
 ### Composing Helpers
 
 #### Chain Helpers
 
-Before the actual statements, let's see some of the helpers available so the crafting of complete SQL is easier.
+Before the actual statements, let's see some of the helpers available to ease the crafting of SQL using as much go as possible (working under the assumption that the more freeform strings we use, the more possibilities for syntax errors uncaught until runtime will slip).
 Many of these do simple string concatenation or formatted printing but when the query grows to a decent lenght they are much
 less error prone and definitely much easier to read.
 
 ##### [TablePrefix](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#TablePrefix)
 
-Table prefix returns a function that when invoked with a string as parameter returns the passed in string namespaced with the construcing table name.
+Table prefix returns a function that when invoked with a string as parameter returns the passed in string namespaced with the construcing table name. (See also [TablePrefixes](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.TablePrefixes) which provides a more complex, template based version of this built into ExpressionChain)
 
 ```golang
 tn := chain.TablePrefix("TableName")
@@ -223,7 +228,12 @@ WHERE (col1, col2, col3) IN ((1,2,3), (4,5,6))
 ```
 
 ```golang
-chain.ColumnGroup("col1", "col2", "col3") // -> (col1, col2, col3)
+cg := chain.ColumnGroup("col1", "col2", "col3") // -> (col1, col2, col3)
+// this can be used in places like
+chain.New().
+	Select("field").
+	From("table").
+	AndWhere(chain.In(gc), args)
 ```
 
 #### [AndConditions](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#AndConditions)
@@ -234,17 +244,19 @@ And Conditions concatenates Several conditions using `AND`
 chain.AndConditions("a = 1", "b = 2") // -> a = 1 AND b = 2
 ```
 
-#### [CompareExpresions](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#CompareExpresions)
+#### [CompareExpressions](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#CompareExpressions)
 
-Compare Expresions makes a comparision between two SQL values (columns, constants, etc) using one of
+Compare Expressions makes a comparision between two SQL values (columns, constants, etc) using one of
 the [predefined operators](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#CompOperator) 
 (you may define your own too)
 
 ```golang
-chain.CompareExpresions(chain.Eq, "column1", "column2") // -> column1 = column2
+chain.CompareExpressions(chain.Eq, "column1", "column2") // -> column1 = column2
 ```
 
-This particular helper is useful when crafting `JOIN` 
+The main goal of this is to craft expression comparision between columns or constants instead of ones that use external arguments.
+
+This particular helper is useful when crafting group comparisions for `WHERE` or `JOIN` 
 
 **Example**
 
@@ -253,12 +265,12 @@ t1 := chain.TablePrefix("Table1")
 t2 := chain.TablePrefix("Table2")
 
 joinConditions := chain.AndConditions(
-	chain.CompareExpresions(
+	chain.CompareExpressions(
 		chain.Eq,
 		chain.ColumnGroup(t1("col1"),t1("col2"),t1("col3")),
 		chain.ColumnGroup(t2("col1"),t2("col2"),t2("col3")),
 	),
-	chain.CompareExpresions(
+	chain.CompareExpressions(
 		chain.Gt,
 		t1("gtColumn"),
 		t2("gtColumn"),
@@ -266,13 +278,13 @@ joinConditions := chain.AndConditions(
 )
 ```
 
-The value of `joinConditions` in this case is:
+When rendered `joinConditions` in this case is:
 
 ```sql
 (Table1.col1, Table1.col2, Table1.col3) = (Table2.col1, Table2.col2, Table2.col3) AND Table1.gtColumn = Table2.gtColumn
 ```
 
-#### [As](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#CompareExpresions)
+#### [As](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#CompareExpressions)
 
 As returns the string with an added SQL alias
 
@@ -307,7 +319,7 @@ In creates the `IN (....)` construction but helps if you already have the items 
 so you do not have to unpack them
 
 ```golang
-chain.In("column", []int64{1,2,3}) // column IN (?) // interface{} = []int64{1,2,3}
+chain.InSlice("column", []int64{1,2,3}) // column IN (?) // interface{} = []int64{1,2,3}
 ```
 
 #### [Null](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#Null), [NotNull](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NotNull)
@@ -331,8 +343,8 @@ chain.SetToCurrentTimestamp("column") // -> column = CURRENT_TIMESTAMP
 
 These two are useful when fetching results, not when composing the query.
 Nillable* converts safely from pointer to it's concrete type for the two most common types, when retrieving nillable columns from db is best that the recipient be a "pointer to" instead
-of a concrete type otherwise encountering `NULL` values to return would result in failure to assign. To avoid the typicall issues of nil pointer dereference these methods were added that
-in case of nil return the zero value of the type, If you need other types you will have to copy from these:
+of a concrete type otherwise encountering `NULL` values to return would result in either Zero value (for `string` and `time.Time`) of failure to assign in other cases. To avoid the typicall issues of nil pointer dereference these methods were added. 
+In case of nil these will return the zero value of the type, If you need other types you will have to copy from these:
 
 ```golang
 var s *string
@@ -352,10 +364,10 @@ chain.NillableString(ai) // 42
 
 #### Before Beginning
 
-Any invocation to the methods of [`ExpresionChain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain) requires you to have an instance of it, which can be obtained in two ways.
+Any invocation to the methods of [`ExpressionChain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain) requires you to have an instance of it, which can be obtained in two ways.
 
-* With a constructor: If you require this expression chain to conclude with a call to the DB you might want to use the 
-[`NewExpresionChain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NewExpresionChain) constructor that receives 
+* If you require this expression chain to conclude with a call to the DB you might want to use the 
+[`New`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NewExpressionChain) constructor that receives 
 a [`connection.DB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postgrespq#DB)
 
 	```golang
@@ -365,26 +377,28 @@ a [`connection.DB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/postg
 
 	// [snip] error checking
 
-	q := chain.NewExpresionChain(c)
+	q := chain.New(c)
 	```
 
-* Creating an instance: If your purpose is to just render the query or use it as a subquery you can just instantiate yourself, without a `connection.DB`
+* Constructing an ExpressionChain unbound to a db: If your purpose is to just render the query or use it as a subquery you can use instead the constructor [`NewNoDB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NewNoDB)
 
 	```golang
-	q := chain.ExpresionChain{}
+	q := NewNoDB()
 	```
 
-All chain methods mutate the query in place, the only reason a pointer is returned is for easy of composing queries.
+Bear in mind that invoking the methods that fetch data from the DB will panic.
 
-#### [Clone](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Clone)
+All chain methods mutate the query in place, the only reason a pointer is returned is for ease  composing queries.
 
-At any point in the use of the query you can invoque `q.Clone()` to obtain a copy of it (safe the `connection.DB` which is copied as is).
+#### [Clone](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Clone)
+
+At any point in the use of the query you can invoque `q.Clone()` to obtain a deep copy of it (safe the `connection.DB` which is copied as is).
 This is useful in cases where a query departs from the same root but at some point you want to fork it to create two similar queries.
 
-#### [Select](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Select)
+#### [Select](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Select)
 
-Select allows you to craft a select of multiple columns or expresions, this method allows you to query on all the expresions `SELECT` can 
-excepting for expresions requiring an external positional parameter, for that use [SelectWithArguments](#SelectWithArguments)
+Select allows you to craft a select of multiple columns or expressions, this method will help you craft a query with any valid syntax that `SELECT` accepts 
+excepting for expressions requiring an external positional parameter, for that use [SelectWithArguments](#SelectWithArguments)
 
 ```golang
 tp := chain.TablePrefix("ATable")
@@ -403,9 +417,9 @@ will produce:
 SELECT one, two, three AS four, four AS five, ATable.five as six, AVG(something)
 ```
 
-#### [SelectWithArguments](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.SelectWithArguments)
+#### [SelectWithArguments](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.SelectWithArguments)
 
-Select With Arguments acts the same as `ExpresionChain.Select` but allows for external arguments, since its produced code is a bit
+Select With Arguments acts the same as `ExpressionChain.Select` but allows for external arguments, since its produced code is a bit
 more complex, instead of receiving a variadic list of arguments, it receives a variadic list of `chain.SelectArgument`
 
 ```golang
@@ -423,7 +437,11 @@ SELECT one, two AS something, afn(oneparam, ?)
 -- And the int 3 will be passed to the final render/call to db
 ```
 
-#### [Update](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Update)
+Note that select will accept either a list of strings that will be concatenated with `, ` or one string containing the whole expression in free form.
+
+#### [Update](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Update)
+
+This version of `UPDATE` will take a string with the contents of the `SET` portion of an update SQL query, there is a more structured form that will be described next
 
 ```golang
 chain.Update("field1 = ?, field3 = ?", "value2", 9).Table("something").Where("id = ?", 1)
@@ -435,8 +453,26 @@ will produce:
 UPDATE something SET (field1 = $1, field3 = $2) WHERE id = $3
 ```
 
+#### [UpdateMap](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.UpdateMap)
 
-#### [Delete](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Delete)
+This version of `UPDATE` will take a map of `string` to `interface{}` to allow a more structured code when crafting an update.
+
+```golang
+updateArgs := map[string]interface{}{
+	"field1": "value2",
+	"field2": 9,
+}
+chain.UpdateMap(updateArgs).Table("something").AndWhere("id = ?", 1)
+```
+
+will produce:
+
+```sql
+UPDATE something SET (field1 = $1, field3 = $2) WHERE id = $3
+```
+
+
+#### [Delete](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Delete)
 
 ```golang
 chain.Delete().Table("something").Where("arg1=? AND arg2>?", 1,4)
@@ -448,7 +484,7 @@ will produce:
 DELETE FROM something WHERE arg1 = $1 AND arg2>$2
 ```
 
-#### [Insert](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Insert)
+#### [Insert](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Insert)
 
 ```golang
 q.Insert(map[string]interface{}{
@@ -470,10 +506,40 @@ And Arguments
 []interface{}{"value1", 2, "blah"}
 ```
 
-#### Conflict
+#### [InsertMulti](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.InsertMulti)
+
+This variation of insert allows to make inserts of multiple rows.
 
 ```golang
-chain.Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).Table("something").Conflict(chain.Constraint("therecanbeonlyone"), chain.ConflictActionNothing)
+q.InsertMulti(map[string][]interface{}{
+	"field1": []interface{}{"value1", "value1.1"}, 
+	"field2": []interface{}{2, 22}, 
+	"field3": []interface{}{"blah", "blah2"}}).
+	Table("something")
+```
+
+will produce:
+
+```sql
+INSERT INTO convenient_table(field1, field2, field3) VALUES ($1, $2, $3), ($4, $5, $6)
+```
+
+And Arguments
+
+```golang
+[]interface{}{"value1", 2, "blah", "value1.1", 22, "blah2"}
+```
+
+#### [Conflict](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Conflict)
+
+The Conflict method allows a variety of `ON CONFLICT` SQL expressions to be generated, among
+the options (please see doc for exhaustive detail) you can find `DO NOTHING`, `SET` and others enough to make upserts.
+
+```golang
+chain.Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": "blah"}).Table("something").
+Conflict(
+	chain.Constraint("therecanbeonlyone"), 
+	chain.ConflictActionNothing)
 ```
 
 will produce:
@@ -496,27 +562,8 @@ INSERT INTO something (field1, field2, field3) VALUES ($1, $2, $3) ON CONFLICT (
 ```
 
 
-#### [InsertMulti](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.InsertMulti)
 
-```golang
-query, err := chain.InsertMulti(map[string][]interface{}{
-	"field1": []interface{"value1", "value2"},
-	"field2": []interface{2, 3}, 
-	"field3": []interface{"blah", "foo"},
-	}).Table("something")
-```
-
-will produce:
-
-```sql
-INSERT INTO something (field1, field2, field3) VALUES ($1, $2, $3), ($4, $5, $6), ($7, $8, $9)
-```
-
-
-### Composing Query modificators
-
-
-#### [Table](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Table), [From](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.From)
+#### [Table](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Table), [From](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.From)
 
 ```golang
 chain.Select("one", "two", "three as four").Table("something")
@@ -530,8 +577,10 @@ will produce:
 SELECT one, two, three FROM something
 ```
 
+### Composing Query modificators
 
-#### [AndWhere](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.AndWhere), [OrWhere](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.OrWhere)
+
+#### WHERE [AndWhere](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.AndWhere), [OrWhere](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.OrWhere)
 
 Using **And**
 
@@ -572,7 +621,7 @@ q.Select("one", "two", "three as four").
 	AndWhere(chain.GreaterThan("arg2"), 4).
 	AndWhere(chain.Equals("arg4"), 3).
 	OrWhereGroup(
-		(&ExpresionChain{}).AndWhere("inner == ?", 1).AndWhere("inner2 > ?", 2))
+		NewNoDB().AndWhere("inner == ?", 1).AndWhere("inner2 > ?", 2))
 ``` 
 will produce :
 
@@ -587,10 +636,10 @@ And Arguments
 ```
 
 
-#### [Join](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Join)
+#### [Join](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Join), [InnerJoin](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.InnerJoin), [FullJoin](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.FullJoin), [RightJoin](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.RightJoin), [LeftJoin](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.LeftJoin)
 
 ```golang
-chain.Select("one, two, three as four, other.five").Table("something").Join("other ON field = ?", "fieldvalue").Where("arg1=? AND arg2>?", 1,4)
+chain.Select("one, two, three as four, other.five").From("something").Join("other", "field = ?", "fieldvalue").Where("arg1=? AND arg2>?", 1,4)
 ``` 
 
 will produce:
@@ -599,6 +648,112 @@ will produce:
 SELECT one, two, three as four, other.five FROM something JOIN other ON field = $1 WHERE arg1=$2 AND arg2>$3).Where("arg1=? AND arg2>?", 1,4)
 ```
 
+### Union
+
+There are two ways to make an `UNION`:
+
+#### [Union](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Union)
+
+```golang
+c := New(db).Select("*").From("a").AndWhere("a.field = ?", 1)
+c.Union("SELECT * FROM b WHERE b.field = ?", 2)
+```
+
+will produce
+
+```sql
+SELECT * FROM a WHERE a.field = $1
+UNION
+SELECT * FROM b WHERE b.field = $2
+```
+
+and arguments
+
+```golang
+[]interface{}{1, 2}
+```
+
+#### [AddUnionFromChain](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.AddUnionFromChain)
+
+```golang
+c := New(db).Select("*").From("a").AndWhere("a.field = ?", 1)
+d := New(db).Select("*").From("b").AndWhere("b.field = ?", 2)
+c.AddUnionFromChain(d)
+```
+
+will produce
+
+```sql
+SELECT * FROM a WHERE a.field = $1
+UNION
+SELECT * FROM b WHERE b.field = $2
+```
+
+and arguments
+
+```golang
+[]interface{}{1, 2}
+```
+
+### [CTEs](https://www.postgresql.org/docs/11/queries-with.html)
+
+There is some limited support for CTEs
+
+#### [With](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.With)
+
+**"With"** will render CTEs in the order they were added (to ease testing and preserve inter-dependency)
+
+**Note:** Unions only support CTEs if they are added to the receiving function.
+
+```golang
+cte := NewNoDB().Select("*").From("some_table_in_cte")
+New(db).Select("field1", "field2", "field3").
+	With("a_cte", cte).
+	From("a_cte").
+	AndWhere("field1 > ?", 1).
+	AndWhere("field2 = ?", 2).
+	AndWhere("field3 > ?", "astring")
+```
+
+will produce
+
+```sql
+WITH a_cte AS (SELECT * FROM some_table_in_cte) 
+SELECT field1, field2, field3 
+FROM a_cte 
+WHERE field1 > $1 AND field2 = $2 AND field3 > $3
+```
+
+and arguments
+
+```golang
+[]interface{}{1, 2, "astring"}
+```
+
+### TablePrefixes
+
+Since crafting a query using a lot of invocations of `TablePrefix` functions it might be easier to use the version of this feature built into chain (this is not very efficient as it compiles and executes a template per modificator invocated (`Select`, `Insert`, `AndWhere`, etc)
+
+**Note:** The prefixes should be set before calling any modificator as they are rendered upon invocation and not at final render time to avoid large memory allocations in large queries.
+
+```golang
+c := New(db)
+c.TablePrefixes().Add("t1", "really_long_alias")
+c.TablePrefixes().Add("t2", "other_really_long_aliasalias")
+c.Select("{.t1}.field1, {.t1}.field2, {.t2}.field1").From("tablename AS really_long_alias").Join("othertable AS other_really_long_aliasalias", "{.t1}.field1 = {.t2}.fieldx")
+```
+will produce
+
+```sql
+SELECT really_long_alias.field1, really_long_alias.field2, other_really_long_aliasalias.field1
+FROM tablename AS really_long_alias.field1
+JOIN othertable AS other_really_long_aliasalias ON 
+really_long_alias.field1 = other_really_long_aliasalias
+```
+
+The replacement will not be run on arguments to reduce the surface for pottential injections.
+
+#### [TablePrefixes](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.TablePrefixes)
 
 ### Rendering
 
@@ -606,21 +761,25 @@ There are two forms of rendering, both will return the query string and a slice 
 
 #### Render
 
-Returns the query string with the `?` appearances replaced by the positional argument
+Returns the query string with the `?` appearances replaced by the positional argument (`$1, $2.. etc`)
 
 #### RenderRaw
 
-Returns the query and args but without replacement, ideal for subqueries or for the future implementation of `Constraint`
+Returns the query and args but without replacement, ideal for subqueries or for the future implementation of `Constraint` or just for debugging.
 
 ### Running
 
 For running all the same functions that are available on [DB](#db) are here but you don't need to pass on the query components, only the receivers, if any:
 
-* [Query](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Query)
-* [QueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.QueryIter)
-* [QueryPrimitives](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.QueryPrimitives)
-* [Raw](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Raw)
-* [Exec](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpresionChain.Exec)
+* [Query](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Query)
+* [QueryIter](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.QueryIter)
+* [QueryPrimitives](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.QueryPrimitives)
+* [Raw](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Raw)
+* [Exec](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Exec)
+
+All of these return a `fetch` function that, when invoked with the receiver (that must always be a pointer to the desired type, even for slices) will populate it or fail, notice that this separation allows for better detection of errors as you will be able to check error output for query and for data fetch (ie, syntax error vs no rows)
+
+As an additional convenience function there is [Fetch](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Fetch) and [FetchPrimitives](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.FetchPrimitives) that combine both the query and invocation of fetch for [Query](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain.Query) and [QueryPrimitives](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/) respectively.
 
 ## GroupChain (untested)
 

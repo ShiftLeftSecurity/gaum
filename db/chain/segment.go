@@ -32,9 +32,9 @@ const (
 	SQLOr sqlBool = "OR"
 	// SQLNot represents NOT in SQL
 	SQLNot sqlBool = "NOT"
-	// SQLAndNot Negates the expresion after AND
+	// SQLAndNot Negates the expression after AND
 	SQLAndNot sqlBool = "AND NOT"
-	// SQLOrNot Neates the expresion after OR
+	// SQLOrNot Neates the expression after OR
 	SQLOrNot sqlBool = "OR NOT"
 )
 
@@ -72,7 +72,7 @@ const (
 
 type querySegmentAtom struct {
 	segment     sqlSegment
-	expresion   string
+	expression   string
 	arguments   []interface{}
 	sqlBool     sqlBool
 	sqlModifier sqlModifier
@@ -87,7 +87,7 @@ func (q *querySegmentAtom) clone() querySegmentAtom {
 	}
 	return querySegmentAtom{
 		segment:   q.segment,
-		expresion: q.expresion,
+		expression: q.expression,
 		sqlBool:   q.sqlBool,
 		arguments: arguments,
 	}
@@ -111,7 +111,7 @@ func (q *querySegmentAtom) fields() []string {
 	fields := []string{}
 	if q.segment == sqlSelect {
 		var err error
-		fields, err = selectparse.FieldsFromSelect(q.expresion)
+		fields, err = selectparse.FieldsFromSelect(q.expression)
 		if err != nil {
 			// We do not have a case for errors here since missing fields will just
 			// prompt the DB for the columns
@@ -130,6 +130,6 @@ func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool,
 		dst.WriteString(string(q.sqlBool))
 	}
 	dst.WriteRune(' ')
-	dst.WriteString(q.expresion)
+	dst.WriteString(q.expression)
 	return q.arguments
 }
