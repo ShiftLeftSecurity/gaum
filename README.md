@@ -11,7 +11,7 @@ This library is, as it's name indicates, a bare minimum. It is not a "drop in" r
 How to use it, there are two components that can be used separately:
 
  * [The DB connector](#db): Which allows interaction with the underlying DB, it adds almost nothing to the underlying API but some minor level of magic when fetching the data and a set of helpers to convert from the more practical `?` argument placeholders to the numbered positionals required by the DB `$1, $2,....` with a few convenient expansions like making `(?)` into `($1...n)` based on the passed arguments (with limitations).
- * [The Chain](#chain): Provides a set of convenience functions and methods that allows chaning and combining to produce a struct that can render itself into a consistent SQL query (the promise is that the same object renders itself into the same SQL object each time)
+ * [The Chain](#chain): Provides a set of convenience functions and methods that allows chaining and combining to produce a struct that can render itself into a consistent SQL query (the promise is that the same object renders itself into the same SQL object each time).
 
  ## DB
  
