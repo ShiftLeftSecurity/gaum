@@ -149,7 +149,7 @@ This has not yet been tested, it's intention is to use the `COPY` statement.
  
 ## Chain
 
-The Chain (poor decision on my part used the very long `ExpressionChain` name) is the main SQL building element, it is an object that contains enough information to render itself into a SQL query and invoke the database with it optionally. The object iself has a plethora of methods that mutate its attributes with the different parts of a query and allow easy manipulation, unlike working with just string concatenation and also providing some of the safety and syntax of go.
+The Chain (poor decision on my part used the very long `ExpressionChain` name) is the main SQL building element, it is an object that contains enough information to render itself into a SQL query and invoke the database with it optionally. The object itself has a plethora of methods that mutate its attributes with the different parts of a query and allow easy manipulation, unlike working with just string concatenation and also providing some of the safety and syntax of go.
 
 To use a [`Chain`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#ExpressionChain) you must create one with [`chain.New`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#New) if you want it to be able to also invoke the DB or [`chain.NewNoDB`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#NewNoDB) if you don't need (such as to formulate sub-queries, CTEs, Where Groups and others that we will see ahead)
 
