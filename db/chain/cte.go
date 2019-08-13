@@ -50,8 +50,8 @@ func (ec *ExpressionChain) renderctes(dst *strings.Builder) ([]interface{}, erro
 			return nil, errors.Wrapf(err, "rendering cte %s", name)
 		}
 		dst.WriteRune(')')
-		if i == len(ec.ctesOrder)-1 {
-			dst.WriteRune('.')
+		if i == len(ec.ctesOrder)-2 {
+			dst.WriteString(", ")
 		}
 		args = append(args, cteArgs...)
 	}
