@@ -41,7 +41,7 @@ func (ec *ExpressionChain) renderctes(dst *strings.Builder) ([]interface{}, erro
 
 	args := []interface{}{}
 	dst.WriteString("WITH ")
-	for _, name := range ec.ctesOrder {
+	for i, name := range ec.ctesOrder {
 		expr := ec.ctes[name]
 		dst.WriteString(name)
 		dst.WriteString(" AS (")
@@ -50,6 +50,9 @@ func (ec *ExpressionChain) renderctes(dst *strings.Builder) ([]interface{}, erro
 			return nil, errors.Wrapf(err, "rendering cte %s", name)
 		}
 		dst.WriteRune(')')
+		if i == len(ec.ctesOrder)-1 {
+			dst.WriteRune('.')
+		}
 		args = append(args, cteArgs...)
 	}
 	dst.WriteRune(' ')
