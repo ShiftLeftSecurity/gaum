@@ -2,6 +2,7 @@
 
 
 [[projects]]
+  digest = "1:d20ff0edad895612dfcfa5c53c0b24a2a7ae0929bc9559f8ffe549eb51093fe7"
   name = "github.com/jackc/pgx"
   packages = [
     ".",
@@ -10,26 +11,36 @@
     "pgio",
     "pgproto3",
     "pgtype",
-    "stdlib"
+    "stdlib",
   ]
+  pruneopts = "UT"
   revision = "da3231b0b66e2e74cdb779f1d46c5e958ba8be27"
   version = "v3.1.0"
 
 [[projects]]
+  digest = "1:40e195917a951a8bf867cd05de2a46aaf1806c50cf92eebf4c16f78cd196f747"
   name = "github.com/pkg/errors"
   packages = ["."]
+  pruneopts = "UT"
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
 
 [[projects]]
+  digest = "1:274f67cb6fed9588ea2521ecdac05a6d62a8c51c074c1fccc6a49a40ba80e925"
   name = "github.com/satori/go.uuid"
   packages = ["."]
+  pruneopts = "UT"
   revision = "f58768cc1a7a7e77a3bd49e98cdd21419399b6a3"
   version = "v1.2.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "724e0f5c61a82838b3b8fd7c8a99b67696e782f0eef5b129b3673ca18c7c47e2"
+  input-imports = [
+    "github.com/jackc/pgx",
+    "github.com/jackc/pgx/stdlib",
+    "github.com/pkg/errors",
+    "github.com/satori/go.uuid",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -257,10 +257,10 @@ func (q *Q) InnerJoin(table string, on string, args ...interface{}) *Q {
 // argument can contain any valid SQL expression for the `ON` section of a JOIN
 // you can use `?` as a placeholder for values to be safely passed as variadic arguments after
 // the <on> argument
-func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
-	q.query.OuterJoin(table, on, args...)
-	return q
-}
+//func (q *Q) OuterJoin(table string, on string, args ...interface{}) *Q {
+//	q.query.OuterJoin(table, on, args...)
+//	return q
+//}
 
 // AndWhere adds a `WHERE` condition section that can be:
 //
