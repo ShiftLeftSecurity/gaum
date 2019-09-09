@@ -66,7 +66,7 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 				UseFallbackTLS:    ci.UseFallbackTLS,
 				FallbackTLSConfig: ci.FallbackTLSConfig,
 				Logger:            logging.NewPgxLogAdapter(conLogger),
-				LogLevel:          int(llevel),
+				LogLevel:          llevel,
 			},
 			MaxConnections: ci.MaxConnPoolConns,
 		}
@@ -95,7 +95,7 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 				UseFallbackTLS:    ci.UseFallbackTLS,
 				FallbackTLSConfig: ci.FallbackTLSConfig,
 				Logger:            logging.NewPgxLogAdapter(ci.Logger),
-				LogLevel:          int(llevel),
+				LogLevel:          llevel,
 			})
 		} else {
 			defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
