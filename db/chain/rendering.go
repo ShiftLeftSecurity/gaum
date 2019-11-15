@@ -187,8 +187,7 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 
 	}
 	if ec.mainOperation.segment == sqlSelect ||
-		ec.mainOperation.segment == sqlDelete ||
-		ec.mainOperation.segment == sqlUpdate {
+		ec.mainOperation.segment == sqlDelete {
 		// JOIN
 		joins := extract(ec, sqlJoin)
 		joins = append(joins, extract(ec, sqlLeftJoin)...)
@@ -202,6 +201,22 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 				query.WriteRune(' ')
 				query.WriteString(join.expression)
 				args = append(args, join.arguments...)
+			}
+		}
+	}
+	if ec.mainOperation.segment == sqlUpdate {
+		// In UPDATE join is accomplished by using the FROM clause because why would this be
+		// easy?
+		froms := extract(ec, sqlFromUpdate)
+
+		if len(froms) != 0 {
+			query.WriteString(" FROM ")
+			for i, from := range froms {
+				if i != 0 {
+					query.WriteString(", ")
+				}
+				query.WriteString(from.expression)
+				args = append(args, from.arguments...)
 			}
 		}
 	}
