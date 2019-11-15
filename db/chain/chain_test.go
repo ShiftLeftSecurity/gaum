@@ -348,9 +348,10 @@ func TestExpressionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
-			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
-			wantArgs: []interface{}{"value2", 9, "unpirulo", 1, 2, "pajarito"},
+				AndWhere("pirulo = ?", "unpirulo").
+				FromUpdate("another_convenient_table"),
+			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 FROM another_convenient_table WHERE field1 > $3 AND field2 = $4 AND field3 > $5 AND pirulo = $6",
+			wantArgs: []interface{}{"value2", 9, 1, 2, "pajarito", "unpirulo"},
 			wantErr:  false,
 		},
 		{
@@ -379,9 +380,10 @@ func TestExpressionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
-			want:     "UPDATE convenient_table SET field1 = $1, field3 = NULL JOIN another_convenient_table ON pirulo = $2 WHERE field1 > $3 AND field2 = $4 AND field3 > $5",
-			wantArgs: []interface{}{"value2", "unpirulo", 1, 2, "pajarito"},
+				AndWhere("pirulo = ?", "unpirulo").
+				FromUpdate("another_convenient_table"),
+			want:     "UPDATE convenient_table SET field1 = $1, field3 = NULL FROM another_convenient_table WHERE field1 > $2 AND field2 = $3 AND field3 > $4 AND pirulo = $5",
+			wantArgs: []interface{}{"value2", 1, 2, "pajarito", "unpirulo"},
 			wantErr:  false,
 		},
 		{
@@ -391,9 +393,10 @@ func TestExpressionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
-				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
-			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 JOIN another_convenient_table ON pirulo = $3 WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
-			wantArgs: []interface{}{"value2", 9, "unpirulo", 1, 2, "pajarito"},
+				AndWhere("pirulo = ?", "unpirulo").
+				FromUpdate("another_convenient_table"),
+			want:     "UPDATE convenient_table SET field1 = $1, field3 = $2 FROM another_convenient_table WHERE field1 > $3 AND field2 = $4 AND field3 > $5 AND pirulo = $6",
+			wantArgs: []interface{}{"value2", 9, 1, 2, "pajarito", "unpirulo"},
 			wantErr:  false,
 		},
 		{

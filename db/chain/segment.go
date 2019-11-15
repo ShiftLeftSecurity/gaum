@@ -48,23 +48,24 @@ const (
 type sqlSegment string
 
 const (
-	sqlWhere     sqlSegment = "WHERE"
-	sqlLimit     sqlSegment = "LIMIT"
-	sqlOffset    sqlSegment = "OFFSET"
-	sqlJoin      sqlSegment = "JOIN"
-	sqlLeftJoin  sqlSegment = "LEFT JOIN"
-	sqlRightJoin sqlSegment = "RIGHT JOIN"
-	sqlInnerJoin sqlSegment = "INNER JOIN"
-	sqlFullJoin  sqlSegment = "FULL JOIN"
-	sqlSelect    sqlSegment = "SELECT"
-	sqlDelete    sqlSegment = "DELETE"
-	sqlInsert    sqlSegment = "INSERT"
-	sqlUpdate    sqlSegment = "UPDATE"
-	sqlFrom      sqlSegment = "FROM"
-	sqlGroup     sqlSegment = "GROUP BY"
-	sqlOrder     sqlSegment = "ORDER BY"
-	sqlReturning sqlSegment = "RETURNING"
-	sqlHaving    sqlSegment = "HAVING"
+	sqlWhere      sqlSegment = "WHERE"
+	sqlLimit      sqlSegment = "LIMIT"
+	sqlOffset     sqlSegment = "OFFSET"
+	sqlJoin       sqlSegment = "JOIN"
+	sqlLeftJoin   sqlSegment = "LEFT JOIN"
+	sqlRightJoin  sqlSegment = "RIGHT JOIN"
+	sqlInnerJoin  sqlSegment = "INNER JOIN"
+	sqlFullJoin   sqlSegment = "FULL JOIN"
+	sqlSelect     sqlSegment = "SELECT"
+	sqlDelete     sqlSegment = "DELETE"
+	sqlInsert     sqlSegment = "INSERT"
+	sqlUpdate     sqlSegment = "UPDATE"
+	sqlFrom       sqlSegment = "FROM"
+	sqlFromUpdate sqlSegment = "FROM"
+	sqlGroup      sqlSegment = "GROUP BY"
+	sqlOrder      sqlSegment = "ORDER BY"
+	sqlReturning  sqlSegment = "RETURNING"
+	sqlHaving     sqlSegment = "HAVING"
 	// SPECIAL CASES
 	sqlInsertMulti sqlSegment = "INSERTM"
 	sqlUnion                  = "UNION"
@@ -72,7 +73,7 @@ const (
 
 type querySegmentAtom struct {
 	segment     sqlSegment
-	expression   string
+	expression  string
 	arguments   []interface{}
 	sqlBool     sqlBool
 	sqlModifier sqlModifier
@@ -86,10 +87,10 @@ func (q *querySegmentAtom) clone() querySegmentAtom {
 		arguments[i] = a
 	}
 	return querySegmentAtom{
-		segment:   q.segment,
+		segment:    q.segment,
 		expression: q.expression,
-		sqlBool:   q.sqlBool,
-		arguments: arguments,
+		sqlBool:    q.sqlBool,
+		arguments:  arguments,
 	}
 }
 

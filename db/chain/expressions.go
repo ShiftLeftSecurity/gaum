@@ -61,10 +61,10 @@ func (ec *ExpressionChain) appendExpandedOp(expr string,
 	expr, args = ExpandArgs(args, expr)
 	ec.append(
 		querySegmentAtom{
-			segment:   op,
+			segment:    op,
 			expression: ec.populateTablePrefixes(expr),
-			arguments: args,
-			sqlBool:   boolOp,
+			arguments:  args,
+			sqlBool:    boolOp,
 		})
 	return ec
 }
@@ -75,10 +75,10 @@ func (ec *ExpressionChain) setExpandedMainOp(expr string,
 	args ...interface{}) *ExpressionChain {
 	expr, args = ExpandArgs(args, expr)
 	ec.mainOperation = &querySegmentAtom{
-		segment:   op,
+		segment:    op,
 		expression: ec.populateTablePrefixes(expr),
-		arguments: args,
-		sqlBool:   boolOp,
+		arguments:  args,
+		sqlBool:    boolOp,
 	}
 	return ec
 }
@@ -137,7 +137,7 @@ func (ec *ExpressionChain) Returning(args ...string) *ExpressionChain {
 	}
 	ec.append(
 		querySegmentAtom{
-			segment:   sqlReturning,
+			segment:    sqlReturning,
 			expression: "RETURNING " + strings.Join(args, ", "),
 		})
 	return ec
@@ -159,16 +159,22 @@ func (ec *ExpressionChain) From(table string) *ExpressionChain {
 	return ec
 }
 
+// FromUpdate adds a special case of from, for UPDATE where FROM is used as JOIN
+func (ec *ExpressionChain) FromUpdate(expr string, args ...interface{}) *ExpressionChain {
+	ec.appendExpandedOp(expr, sqlFromUpdate, SQLNothing, args...)
+	return ec
+}
+
 // Limit adds a 'LIMIT' to the 'ExpressionChain' and returns the same chan to facilitate
 // further chaining.
 // THIS DOES NOT CREATE A COPY OF THE CHAIN, IT MUTATES IN PLACE.
 func (ec *ExpressionChain) Limit(limit int64) *ExpressionChain {
 	ec.setLimit(
 		&querySegmentAtom{
-			segment:   sqlLimit,
+			segment:    sqlLimit,
 			expression: strconv.FormatInt(limit, 10),
-			arguments: nil,
-			sqlBool:   SQLNothing,
+			arguments:  nil,
+			sqlBool:    SQLNothing,
 		})
 	return ec
 }
@@ -179,10 +185,10 @@ func (ec *ExpressionChain) Limit(limit int64) *ExpressionChain {
 func (ec *ExpressionChain) Offset(offset int64) *ExpressionChain {
 	ec.setOffset(
 		&querySegmentAtom{
-			segment:   sqlOffset,
+			segment:    sqlOffset,
 			expression: strconv.FormatInt(offset, 10),
-			arguments: nil,
-			sqlBool:   SQLNothing,
+			arguments:  nil,
+			sqlBool:    SQLNothing,
 		})
 	return ec
 }
@@ -270,9 +276,9 @@ func (ec *ExpressionChain) AddUnionFromChain(union *ExpressionChain, all bool) (
 // change is in place, there are no checks about correctness of the query.
 func (ec *ExpressionChain) Union(unionExpr string, all bool, args ...interface{}) *ExpressionChain {
 	atom := querySegmentAtom{
-		segment:   sqlUnion,
+		segment:    sqlUnion,
 		expression: ec.populateTablePrefixes(unionExpr),
-		arguments: args,
+		arguments:  args,
 	}
 	if all {
 		atom.sqlModifier = SQLAll
