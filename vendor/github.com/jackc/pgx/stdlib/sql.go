@@ -75,6 +75,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
 	"strings"
 	"sync"
@@ -99,9 +100,9 @@ var ErrNotPgx = errors.New("not pgx *sql.DB")
 
 func init() {
 	pgxDriver = &Driver{
-		configs:     make(map[int64]*DriverConfig),
-		fakeTxConns: make(map[*pgx.Conn]*sql.Tx),
+		configs: make(map[int64]*DriverConfig),
 	}
+	fakeTxConns = make(map[*pgx.Conn]*sql.Tx)
 	sql.Register("pgx", pgxDriver)
 
 	databaseSqlOIDs = make(map[pgtype.OID]bool)
@@ -120,23 +121,36 @@ func init() {
 	databaseSqlOIDs[pgtype.XIDOID] = true
 }
 
+var (
+	fakeTxMutex sync.Mutex
+	fakeTxConns map[*pgx.Conn]*sql.Tx
+)
+
+// GetDefaultDriver return the driver initialize in the init function
+// and used when register pgx driver
+func GetDefaultDriver() *Driver {
+	return pgxDriver
+}
+
 type Driver struct {
 	configMutex sync.Mutex
 	configCount int64
 	configs     map[int64]*DriverConfig
-
-	fakeTxMutex sync.Mutex
-	fakeTxConns map[*pgx.Conn]*sql.Tx
 }
 
 func (d *Driver) Open(name string) (driver.Conn, error) {
-	var connConfig pgx.ConnConfig
-	var afterConnect func(*pgx.Conn) error
+	var (
+		connConfig   pgx.ConnConfig
+		afterConnect func(*pgx.Conn) error
+	)
+
 	if len(name) >= 9 && name[0] == 0 {
 		idBuf := []byte(name)[1:9]
 		id := int64(binary.BigEndian.Uint64(idBuf))
+		d.configMutex.Lock()
 		connConfig = d.configs[id].ConnConfig
 		afterConnect = d.configs[id].AfterConnect
+		d.configMutex.Unlock()
 		name = name[9:]
 	}
 
@@ -285,6 +299,12 @@ func (c *Conn) Exec(query string, argsV []driver.Value) (driver.Result, error) {
 
 	args := valueToInterface(argsV)
 	commandTag, err := c.conn.Exec(query, args...)
+	// if we got a network error before we had a chance to send the query, retry
+	if err != nil && !c.conn.LastStmtSent() {
+		if _, is := err.(net.Error); is {
+			return nil, driver.ErrBadConn
+		}
+	}
 	return driver.RowsAffected(commandTag.RowsAffected()), err
 }
 
@@ -296,6 +316,12 @@ func (c *Conn) ExecContext(ctx context.Context, query string, argsV []driver.Nam
 	args := namedValueToInterface(argsV)
 
 	commandTag, err := c.conn.ExecEx(ctx, query, nil, args...)
+	// if we got a network error before we had a chance to send the query, retry
+	if err != nil && !c.conn.LastStmtSent() {
+		if _, is := err.(net.Error); is {
+			return nil, driver.ErrBadConn
+		}
+	}
 	return driver.RowsAffected(commandTag.RowsAffected()), err
 }
 
@@ -316,6 +342,12 @@ func (c *Conn) Query(query string, argsV []driver.Value) (driver.Rows, error) {
 
 	rows, err := c.conn.Query(query, valueToInterface(argsV)...)
 	if err != nil {
+		// if we got a network error before we had a chance to send the query, retry
+		if !c.conn.LastStmtSent() {
+			if _, is := err.(net.Error); is {
+				return nil, driver.ErrBadConn
+			}
+		}
 		return nil, err
 	}
 
@@ -332,6 +364,11 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 	if !c.connConfig.PreferSimpleProtocol {
 		ps, err := c.conn.PrepareEx(ctx, "", query, nil)
 		if err != nil {
+			// since PrepareEx failed, we didn't actually get to send the values, so
+			// we can safely retry
+			if _, is := err.(net.Error); is {
+				return nil, driver.ErrBadConn
+			}
 			return nil, err
 		}
 
@@ -341,6 +378,12 @@ func (c *Conn) QueryContext(ctx context.Context, query string, argsV []driver.Na
 
 	rows, err := c.conn.QueryEx(ctx, query, nil, namedValueToInterface(argsV)...)
 	if err != nil {
+		// if we got a network error before we had a chance to send the query, retry
+		if !c.conn.LastStmtSent() {
+			if _, is := err.(net.Error); is {
+				return nil, driver.ErrBadConn
+			}
+		}
 		return nil, err
 	}
 
@@ -495,6 +538,10 @@ func (r *Rows) Next(dest []driver.Value) error {
 				r.values[i] = &pgtype.Int4{}
 			case pgtype.Int8OID:
 				r.values[i] = &pgtype.Int8{}
+			case pgtype.JSONOID:
+				r.values[i] = &pgtype.JSON{}
+			case pgtype.JSONBOID:
+				r.values[i] = &pgtype.JSONB{}
 			case pgtype.OIDOID:
 				r.values[i] = &pgtype.OIDValue{}
 			case pgtype.TimestampOID:
@@ -571,21 +618,20 @@ func (fakeTx) Commit() error { return nil }
 func (fakeTx) Rollback() error { return nil }
 
 func AcquireConn(db *sql.DB) (*pgx.Conn, error) {
-	driver, ok := db.Driver().(*Driver)
-	if !ok {
-		return nil, ErrNotPgx
-	}
-
 	var conn *pgx.Conn
 	ctx := context.WithValue(context.Background(), ctxKeyFakeTx, &conn)
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
+	if conn == nil {
+		tx.Rollback()
+		return nil, ErrNotPgx
+	}
 
-	driver.fakeTxMutex.Lock()
-	driver.fakeTxConns[conn] = tx
-	driver.fakeTxMutex.Unlock()
+	fakeTxMutex.Lock()
+	fakeTxConns[conn] = tx
+	fakeTxMutex.Unlock()
 
 	return conn, nil
 }
@@ -594,14 +640,13 @@ func ReleaseConn(db *sql.DB, conn *pgx.Conn) error {
 	var tx *sql.Tx
 	var ok bool
 
-	driver := db.Driver().(*Driver)
-	driver.fakeTxMutex.Lock()
-	tx, ok = driver.fakeTxConns[conn]
+	fakeTxMutex.Lock()
+	tx, ok = fakeTxConns[conn]
 	if ok {
-		delete(driver.fakeTxConns, conn)
-		driver.fakeTxMutex.Unlock()
+		delete(fakeTxConns, conn)
+		fakeTxMutex.Unlock()
 	} else {
-		driver.fakeTxMutex.Unlock()
+		fakeTxMutex.Unlock()
 		return errors.Errorf("can't release conn that is not acquired")
 	}
 

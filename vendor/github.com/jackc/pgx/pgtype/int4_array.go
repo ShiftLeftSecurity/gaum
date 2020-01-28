@@ -23,6 +23,25 @@ func (dst *Int4Array) Set(src interface{}) error {
 
 	switch value := src.(type) {
 
+	case []int:
+		if value == nil {
+			*dst = Int4Array{Status: Null}
+		} else if len(value) == 0 {
+			*dst = Int4Array{Status: Present}
+		} else {
+			elements := make([]Int4, len(value))
+			for i := range value {
+				if err := elements[i].Set(value[i]); err != nil {
+					return err
+				}
+			}
+			*dst = Int4Array{
+				Elements:   elements,
+				Dimensions: []ArrayDimension{{Length: int32(len(elements)), LowerBound: 1}},
+				Status:     Present,
+			}
+		}
+
 	case []int32:
 		if value == nil {
 			*dst = Int4Array{Status: Null}
@@ -114,7 +133,7 @@ func (src *Int4Array) AssignTo(dst interface{}) error {
 		return NullAssignTo(dst)
 	}
 
-	return errors.Errorf("cannot decode %v into %T", src, dst)
+	return errors.Errorf("cannot decode %#v into %T", src, dst)
 }
 
 func (dst *Int4Array) DecodeText(ci *ConnInfo, src []byte) error {
