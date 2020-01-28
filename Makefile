@@ -1,5 +1,6 @@
 PSQL ?= psql
 export PGPASSWORD="mysecretpassword"
+export GO111MODULE=on
 
 .PHONY: test-postgres-pgx
 test-postgres-pgx: clean-docker
