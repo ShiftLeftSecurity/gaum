@@ -50,7 +50,9 @@ func (ec *ExpressionChain) renderctes(dst *strings.Builder) ([]interface{}, erro
 			return nil, errors.Wrapf(err, "rendering cte %s", name)
 		}
 		dst.WriteRune(')')
-		if i == len(ec.ctesOrder)-2 {
+		// We need commas if we have more than one element
+		// We don't need a comma after last element
+		if len(ec.ctesOrder) > 1 && i != len(ec.ctesOrder)-1 {
 			dst.WriteString(", ")
 		}
 		args = append(args, cteArgs...)

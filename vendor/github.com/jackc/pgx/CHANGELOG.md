@@ -1,3 +1,106 @@
+# 3.5.0 (June 29, 2019)
+
+## Features
+
+* Protocol support for PortalSuspended message (avivklas)
+* Read OIDs for composite types on connection init (Nick Jones)
+
+## Fixes
+
+* Hstore can have empty keys (Josh Leverette)
+* Fix -0 value for numeric type (David Hudson)
+* Log error message on rows-close error (Euan Kemp)
+
+## Changes
+
+* Explicitly cast binary string to bytea in simple protocol (jinhua luo)
+* Skip parse and sanitize simple query when no arguments (jinhua luo)
+
+# 3.4.0 (May 3, 2019)
+
+## Features
+
+* Improved .pgpass handling (Dmitry Smal)
+* Adds RowsAffected for CopyToWriter and CopyFromReader (Nikolay Vorobev)
+* Support binding of []int type to array integer (David Bariod)
+* Expose registered driver instance to aid integration with other libraries (PLATEL Kévin)
+* Allow normal queries on replication connections (Jan Vcelak)
+* Add support for creating a DB from pgx.Pool (fzerorubigd)
+* SCRAM authentication
+* pgtype.Date JSON marshal/unmarshal (Andrey Kuzmin)
+
+## Fixes
+
+* Fix encoding of ErrorResponse (Josh Leverette)
+* Use more detailed error output of unknown field (Ilya Sivanev)
+* "Temporary" Write errors no longer silently break connections.
+* Fix PreferSimpleProtocol overwrite (Ilya Sinelnikov)
+* Fix enum handling (Robert Lin)
+* Copy protocol fixes (Andrey)
+
+## Changes
+
+* Do not attempt recovery from any Write error.
+* Use LogLevel type instead of int for conn config
+
+# 3.3.0 (December 1, 2018)
+
+## Features
+
+* Add CopyFromReader and CopyToWriter (Murat Kabilov)
+* Add MacaddrArray (Anthony Regeda)
+* Add float types to FieldDescription.Type (David Yamnitsky)
+* Add CheckedOutConnections helper method (MOZGIII)
+* Add host query parameter to support Unix sockets (Jörg Thalheim)
+* Custom cancelation hook for use with PostgreSQL-like databases (James Hartig)
+* Added LastStmtSent for safe retry logic (James Hartig)
+
+## Fixes
+
+* Do not silently ignore assign NULL to \*string
+* Fix issue with JSON and driver.Valuer conversion
+* Fix race with stdlib Driver.configs Open (Greg Curtis)
+
+## Changes
+
+* Connection pool uses connections in queue order instead of stack. This
+  minimized the time any connection is idle vs. any other connection.
+  (Anthony Regeda)
+* FieldDescription.Modifier is int32 instead of uint32
+* tls: stop sending ssl_renegotiation_limit in startup message (Tejas Manohar)
+
+# 3.2.0 (August 7, 2018)
+
+## Features
+
+* Support sslkey, sslcert, and sslrootcert URI params (Sean Chittenden)
+* Allow any scheme in ParseURI (for convenience with cockroachdb) (Sean Chittenden)
+* Add support for domain types
+* Add zerolog logging adaptor (Justin Reagor)
+* Add driver.Connector support / Go 1.10 support (James Lawrence)
+* Allow nested database/sql/driver.Drivers (Jackson Owens)
+* Support int64 and uint64 numeric array (Anthony Regeda)
+* Add nul support to pgtype.Bool (Tarik Demirci)
+* Add types to decode error messages (Damir Vandic)
+
+
+## Fixes
+
+* Fix Rows.Values returning same value for multiple columns of same complex type
+* Fix StartReplication() syntax (steampunkcoder)
+* Fix precision loss for test format geometric types
+* Allows scanning jsonb column into `*json.RawMessage`
+* Allow recovery to savepoint in failed transaction
+* Fix deadlock when CopyFromSource panics
+* Include PreferSimpleProtocol in config Merge (Murat Kabilov)
+
+## Changes
+
+* pgtype.JSON(B).Value now returns []byte instead of string. This allows
+  database/sql to scan json(b) into \*json.RawMessage. This is a tiny behavior
+  change, but database/sql Scan should automatically convert []byte to string, so
+  there shouldn't be any incompatibility.
+
 # 3.1.0 (January 15, 2018)
 
 ## Features

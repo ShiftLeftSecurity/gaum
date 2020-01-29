@@ -1,0 +1,28 @@
+# github.com/jackc/pgx v3.5.0+incompatible
+github.com/jackc/pgx
+github.com/jackc/pgx/stdlib
+github.com/jackc/pgx/internal/sanitize
+github.com/jackc/pgx/pgio
+github.com/jackc/pgx/pgproto3
+github.com/jackc/pgx/pgtype
+github.com/jackc/pgx/chunkreader
+# github.com/pkg/errors v0.8.1
+github.com/pkg/errors
+# github.com/satori/go.uuid v1.2.0
+github.com/satori/go.uuid
+# golang.org/x/crypto v0.0.0-20190909091759-094676da4a83
+golang.org/x/crypto/pbkdf2
+# golang.org/x/text v0.3.2
+golang.org/x/text/secure/precis
+golang.org/x/text/cases
+golang.org/x/text/language
+golang.org/x/text/runes
+golang.org/x/text/secure/bidirule
+golang.org/x/text/transform
+golang.org/x/text/unicode/norm
+golang.org/x/text/width
+golang.org/x/text/internal
+golang.org/x/text/internal/language
+golang.org/x/text/internal/language/compact
+golang.org/x/text/unicode/bidi
+golang.org/x/text/internal/tag

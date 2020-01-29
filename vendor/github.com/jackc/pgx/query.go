@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/pkg/errors"
@@ -83,7 +84,7 @@ func (rows *Rows) Close() {
 			rows.conn.log(LogLevelInfo, "Query", map[string]interface{}{"sql": rows.sql, "args": logQueryArgs(rows.args), "time": endTime.Sub(rows.startTime), "rowCount": rows.rowCount})
 		}
 	} else if rows.conn.shouldLog(LogLevelError) {
-		rows.conn.log(LogLevelError, "Query", map[string]interface{}{"sql": rows.sql, "args": logQueryArgs(rows.args)})
+		rows.conn.log(LogLevelError, "Query", map[string]interface{}{"sql": rows.sql, "args": logQueryArgs(rows.args), "err": rows.err})
 	}
 
 	if rows.batch != nil && rows.err != nil {
@@ -136,7 +137,8 @@ func (rows *Rows) Next() bool {
 					rows.fields[i].DataTypeName = dt.Name
 					rows.fields[i].FormatCode = TextFormatCode
 				} else {
-					rows.fatal(errors.Errorf("unknown oid: %d", rows.fields[i].DataType))
+					fd := rows.fields[i]
+					rows.fatal(errors.Errorf("unknown oid: %d, name: %s", fd.DataType, fd.Name))
 					return false
 				}
 			}
@@ -258,7 +260,7 @@ func (rows *Rows) Scan(dest ...interface{}) (err error) {
 					}
 				}
 			} else {
-				rows.fatal(scanArgError{col: i, err: errors.Errorf("unknown oid: %v", fd.DataType)})
+				rows.fatal(scanArgError{col: i, err: errors.Errorf("unknown oid: %v, name: %s", fd.DataType, fd.Name)})
 			}
 		}
 
@@ -287,7 +289,7 @@ func (rows *Rows) Values() ([]interface{}, error) {
 		}
 
 		if dt, ok := rows.conn.ConnInfo.DataTypeForOID(fd.DataType); ok {
-			value := dt.Value
+			value := reflect.New(reflect.ValueOf(dt.Value).Elem().Type()).Interface().(pgtype.Value)
 
 			switch fd.FormatCode {
 			case TextFormatCode:
@@ -367,6 +369,7 @@ type QueryExOptions struct {
 }
 
 func (c *Conn) QueryEx(ctx context.Context, sql string, options *QueryExOptions, args ...interface{}) (rows *Rows, err error) {
+	c.lastStmtSent = false
 	c.lastActivityTime = time.Now()
 	rows = c.getRows(sql, args)
 
@@ -394,6 +397,7 @@ func (c *Conn) QueryEx(ctx context.Context, sql string, options *QueryExOptions,
 	}
 
 	if (options == nil && c.config.PreferSimpleProtocol) || (options != nil && options.SimpleProtocol) {
+		c.lastStmtSent = true
 		err = c.sanitizeAndSendSimpleQuery(sql, args...)
 		if err != nil {
 			rows.fatal(err)
@@ -413,8 +417,9 @@ func (c *Conn) QueryEx(ctx context.Context, sql string, options *QueryExOptions,
 
 		buf = appendSync(buf)
 
-		n, err := c.conn.Write(buf)
-		if err != nil && fatalWriteErr(n, err) {
+		c.lastStmtSent = true
+		_, err = c.conn.Write(buf)
+		if err != nil {
 			rows.fatal(err)
 			c.die(err)
 			return rows, err
@@ -459,6 +464,7 @@ func (c *Conn) QueryEx(ctx context.Context, sql string, options *QueryExOptions,
 	rows.sql = ps.SQL
 	rows.fields = ps.FieldDescriptions
 
+	c.lastStmtSent = true
 	err = c.sendPreparedQuery(ps, args...)
 	if err != nil {
 		rows.fatal(err)
@@ -502,7 +508,8 @@ func (c *Conn) readUntilRowDescription() ([]FieldDescription, error) {
 				if dt, ok := c.ConnInfo.DataTypeForOID(fieldDescriptions[i].DataType); ok {
 					fieldDescriptions[i].DataTypeName = dt.Name
 				} else {
-					return nil, errors.Errorf("unknown oid: %d", fieldDescriptions[i].DataType)
+					fd := fieldDescriptions[i]
+					return nil, errors.Errorf("unknown oid: %d, name: %s", fd.DataType, fd.Name)
 				}
 			}
 			return fieldDescriptions, nil
@@ -515,6 +522,10 @@ func (c *Conn) readUntilRowDescription() ([]FieldDescription, error) {
 }
 
 func (c *Conn) sanitizeAndSendSimpleQuery(sql string, args ...interface{}) (err error) {
+	if len(args) == 0 {
+		return c.sendSimpleQuery(sql)
+	}
+
 	if c.RuntimeParams["standard_conforming_strings"] != "on" {
 		return errors.New("simple protocol queries must be run with standard_conforming_strings=on")
 	}
