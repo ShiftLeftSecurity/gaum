@@ -356,13 +356,29 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			// Get a New ptr to the object of the type of the slice.
 			newElemPtr := reflect.New(tod)
 			// Get the concrete object
-			newElem := newElemPtr.Elem().Elem() // 2nd elem in case type is ptr
+			var newElem reflect.Value
+			var newElemType reflect.Type
+			if tod.Kind() == reflect.Ptr {
+				// Handle slice of pointer
+				intermediatePtr := newElemPtr.Elem()
+				concrete := tod.Elem()
+				newElemType = concrete
+				// this will most likely always be the case, but let's be defensive
+				if intermediatePtr.IsNil() {
+					concreteInstancePtr := reflect.New(concrete)
+					intermediatePtr.Set(concreteInstancePtr)
+				}
+				newElem = intermediatePtr.Elem()
+			} else {
+				newElemType = newElemPtr.Elem().Type()
+				newElem = newElemPtr.Elem()
+			}
 			// Get it's type.
 			ttod := newElem.Type()
 
 			// map the fields of the type to their potential sql names, this is the only "magic"
 			fieldMap = make(map[string]reflect.StructField, ttod.NumField())
-			_, fieldMap, err = srm.MapFromTypeOf(newElemPtr.Elem().Type(),
+			_, fieldMap, err = srm.MapFromTypeOf(newElemType,
 				[]reflect.Kind{}, []reflect.Kind{
 					reflect.Map, reflect.Slice,
 				})
