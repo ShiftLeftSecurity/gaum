@@ -356,7 +356,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			// Get a New ptr to the object of the type of the slice.
 			newElemPtr := reflect.New(tod)
 			// Get the concrete object
-			newElem := newElemPtr.Elem()
+			newElem := newElemPtr.Elem().Elem() // 2nd elem in case type is ptr
 			// Get it's type.
 			ttod := newElem.Type()
 
