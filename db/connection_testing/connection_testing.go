@@ -359,6 +359,36 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 		}
 
 	}
+	// same with slice of ptr receiver
+	var multiRowPtr []*row
+
+	fetcher, err = query.Query()
+	if err != nil {
+		t.Errorf("failed to query: %v", err)
+	}
+	err = fetcher(&multiRowPtr)
+	if err != nil {
+		t.Errorf("failed to fetch data: %v", err)
+	}
+
+	if len(multiRowPtr) != 10 {
+		t.Logf("expected 10 results got %d", len(multiRowPtr))
+		t.FailNow()
+	}
+	for i := 1; i < 11; i++ {
+		t.Logf("Iteration %d", i)
+		oneRowMulti := multiRowPtr[i-1]
+
+		if oneRowMulti.Id != i {
+			t.Logf("row Id is %d expected 1", oneRowMulti.Id)
+			t.FailNow()
+		}
+		if oneRowMulti.Description != ordinals[i-1] {
+			t.Logf("row Description is %q expected %q", oneRowMulti.Description, ordinals[i-1])
+			t.FailNow()
+		}
+
+	}
 
 }
 
