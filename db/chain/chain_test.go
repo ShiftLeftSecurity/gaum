@@ -49,6 +49,18 @@ func TestExpressionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "basic selection with for update",
+			chain: NewNoDB().Select("field1", "field2", "field3").
+				Table("convenient_table").
+				AndWhere("field1 > ?", 1).
+				AndWhere("field2 = ?", 2).
+				AndWhere("field3 > ?", "pajarito").
+				ForUpdate(),
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 FOR UPDATE",
+			wantArgs: []interface{}{1, 2, "pajarito"},
+			wantErr:  false,
+		},
+		{
 			name: "basic selection with table prefix",
 			chain: func() *ExpressionChain {
 				c := NewNoDB()
