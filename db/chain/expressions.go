@@ -286,3 +286,12 @@ func (ec *ExpressionChain) Union(unionExpr string, all bool, args ...interface{}
 	ec.append(atom)
 	return ec
 }
+
+// ForUpdate appends `FOR UPDATE` to a SQL SELECT
+func (ec *ExpressionChain) ForUpdate() *ExpressionChain {
+	ec.append(querySegmentAtom{
+		segment:     gaumSuffix,
+		sqlModifier: SQLForUpdate,
+	})
+	return ec
+}

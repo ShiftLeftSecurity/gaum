@@ -43,6 +43,8 @@ type sqlModifier string
 const (
 	// SQLAll is a modifier that can be append to UNION, INTERSECT and EXCEPT
 	SQLAll sqlModifier = "ALL"
+	// SQLForUpdate is a modifier that can be append to select to lock a row to a given transaction.
+	SQLForUpdate sqlModifier = "FOR UPDATE"
 )
 
 type sqlSegment string
@@ -68,7 +70,8 @@ const (
 	sqlHaving     sqlSegment = "HAVING"
 	// SPECIAL CASES
 	sqlInsertMulti sqlSegment = "INSERTM"
-	sqlUnion                  = "UNION"
+	sqlUnion       sqlSegment = "UNION"
+	gaumSuffix     sqlSegment = "GAUM_SUFFIX"
 )
 
 type querySegmentAtom struct {

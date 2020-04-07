@@ -306,6 +306,17 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 		}
 	}
 
+	// these are just suffixes
+	if segmentsPresent(ec, gaumSuffix) > 0 {
+		suffixes := extract(ec, gaumSuffix)
+		for _, item := range suffixes {
+			if item.sqlModifier == SQLForUpdate {
+				query.WriteRune(' ')
+				query.WriteString(string(item.sqlModifier))
+			}
+		}
+	}
+
 	if !raw {
 		newQuery, argCount, err := PlaceholdersToPositional(query, len(args))
 		if err != nil {
