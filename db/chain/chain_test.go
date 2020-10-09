@@ -581,6 +581,21 @@ func TestExpressionChain_Render(t *testing.T) {
 			wantArgs: []interface{}{1, 2, "pajarito", 10, 20, "upajarito"},
 			wantErr:  false,
 		},
+		{
+			name: "Multiple Joins respect order",
+			chain: func() *ExpressionChain {
+				ec := NewNoDB().Select("field1", "field2", "field3").
+					From("table1").
+					LeftJoin("table2", "table1.field1 = table2.field1").
+					InnerJoin("table1 as t1", "table1.field2 = t1.field2").
+					LeftJoin("table3", "table3.field3 = t1.field3").
+					AndWhere("other_field = ?", 1)
+				return ec
+			}(),
+			want:     "SELECT field1, field2, field3 FROM table1 LEFT JOIN table2 ON table1.field1 = table2.field1 INNER JOIN table1 as t1 ON table1.field2 = t1.field2 LEFT JOIN table3 ON table3.field3 = t1.field3 WHERE other_field = $1",
+			wantArgs: []interface{}{1},
+			wantErr:  false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
