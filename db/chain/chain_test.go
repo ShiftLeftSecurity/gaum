@@ -203,6 +203,32 @@ func TestExpressionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "insert with chain value",
+			chain: NewNoDB().Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": NewNoDB().Select("MAX(value)").From("table").AndWhere("arbitrary = ?", 222)}).
+				Table("convenient_table"),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, (SELECT MAX(value) FROM table WHERE arbitrary = $3))",
+			wantArgs: []interface{}{"value1", 2, 222},
+			wantErr:  false,
+		},
+		{
+			name: "insert multi with chan value",
+			chain: func() *ExpressionChain {
+				cn, err := NewNoDB().InsertMulti(map[string][]interface{}{
+					"field1": []interface{}{"value1", "value1.1"},
+					"field2": []interface{}{2, NewNoDB().Select("MAX(value)").From("table").AndWhere("arbitrary = ?", 222)},
+					"field3": []interface{}{"blah", "blah2"}})
+				if err != nil {
+					t.Logf("insert multi failed: %v", err)
+					t.FailNow()
+				}
+				cn.Table("convenient_table")
+				return cn
+			}(),
+			want:     "INSERT INTO convenient_table(field1, field2, field3) VALUES ($1, $2, $3), ($4, (SELECT MAX(value) FROM table WHERE arbitrary = $5), $6)",
+			wantArgs: []interface{}{"value1", 2, "blah", "value1.1", 222, "blah2"},
+			wantErr:  false,
+		},
+		{
 			name: "basic insert with nulls",
 			chain: NewNoDB().Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": nil}).
 				Table("convenient_table"),
