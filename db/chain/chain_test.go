@@ -203,6 +203,32 @@ func TestExpressionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "insert with chain value",
+			chain: NewNoDB().Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": NewNoDB().Select("MAX(value)").From("table").AndWhere("arbitrary = ?", 222)}).
+				Table("convenient_table"),
+			want:     "INSERT INTO convenient_table (field1, field2, field3) VALUES ($1, $2, (SELECT MAX(value) FROM table WHERE arbitrary = $3))",
+			wantArgs: []interface{}{"value1", 2, 222},
+			wantErr:  false,
+		},
+		{
+			name: "insert multi with chan value",
+			chain: func() *ExpressionChain {
+				cn, err := NewNoDB().InsertMulti(map[string][]interface{}{
+					"field1": []interface{}{"value1", "value1.1"},
+					"field2": []interface{}{2, NewNoDB().Select("MAX(value)").From("table").AndWhere("arbitrary = ?", 222)},
+					"field3": []interface{}{"blah", "blah2"}})
+				if err != nil {
+					t.Logf("insert multi failed: %v", err)
+					t.FailNow()
+				}
+				cn.Table("convenient_table")
+				return cn
+			}(),
+			want:     "INSERT INTO convenient_table(field1, field2, field3) VALUES ($1, $2, $3), ($4, (SELECT MAX(value) FROM table WHERE arbitrary = $5), $6)",
+			wantArgs: []interface{}{"value1", 2, "blah", "value1.1", 222, "blah2"},
+			wantErr:  false,
+		},
+		{
 			name: "basic insert with nulls",
 			chain: NewNoDB().Insert(map[string]interface{}{"field1": "value1", "field2": 2, "field3": nil}).
 				Table("convenient_table"),
@@ -553,6 +579,21 @@ func TestExpressionChain_Render(t *testing.T) {
 			}(),
 			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 AND field3 > $3 UNION SELECT fieldu1, fieldu2, fieldu3 FROM convenient_table WHERE field1 > $4 AND field2 = $5 AND field3 > $6",
 			wantArgs: []interface{}{1, 2, "pajarito", 10, 20, "upajarito"},
+			wantErr:  false,
+		},
+		{
+			name: "Multiple Joins respect order",
+			chain: func() *ExpressionChain {
+				ec := NewNoDB().Select("field1", "field2", "field3").
+					From("table1").
+					LeftJoin("table2", "table1.field1 = table2.field1").
+					InnerJoin("table1 as t1", "table1.field2 = t1.field2").
+					LeftJoin("table3", "table3.field3 = t1.field3").
+					AndWhere("other_field = ?", 1)
+				return ec
+			}(),
+			want:     "SELECT field1, field2, field3 FROM table1 LEFT JOIN table2 ON table1.field1 = table2.field1 INNER JOIN table1 as t1 ON table1.field2 = t1.field2 LEFT JOIN table3 ON table3.field3 = t1.field3 WHERE other_field = $1",
+			wantArgs: []interface{}{1},
 			wantErr:  false,
 		},
 	}

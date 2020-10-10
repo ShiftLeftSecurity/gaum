@@ -194,6 +194,20 @@ func extract(ec *ExpressionChain, seg sqlSegment) []querySegmentAtom {
 	return qs
 }
 
+func extractMany(ec *ExpressionChain, segs []sqlSegment) []querySegmentAtom {
+	qs := []querySegmentAtom{}
+	segMap := map[sqlSegment]bool{}
+	for i := range segs {
+		segMap[segs[i]] = true
+	}
+	for _, item := range ec.segments {
+		if segMap[item.segment] {
+			qs = append(qs, item)
+		}
+	}
+	return qs
+}
+
 // fetchErrors is a private thingy for checking if errors exist
 func (ec *ExpressionChain) hasErr() bool {
 	return len(ec.err) > 0

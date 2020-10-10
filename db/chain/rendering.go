@@ -188,12 +188,8 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 	}
 	if ec.mainOperation.segment == sqlSelect ||
 		ec.mainOperation.segment == sqlDelete {
-		// JOIN
-		joins := extract(ec, sqlJoin)
-		joins = append(joins, extract(ec, sqlLeftJoin)...)
-		joins = append(joins, extract(ec, sqlRightJoin)...)
-		joins = append(joins, extract(ec, sqlInnerJoin)...)
-		joins = append(joins, extract(ec, sqlFullJoin)...)
+		// JOIN, preserver the order in which they were declared
+		joins := extractMany(ec, []sqlSegment{sqlJoin, sqlLeftJoin, sqlRightJoin, sqlInnerJoin, sqlFullJoin})
 		if len(joins) != 0 {
 			for _, join := range joins {
 				query.WriteRune(' ')
@@ -340,7 +336,7 @@ func (ec *ExpressionChain) renderInsert(raw bool, dst *strings.Builder) ([]inter
 	}
 
 	// build insert
-	args := []interface{}{}
+	args := make([]interface{}, 0, len(ec.mainOperation.arguments)) // we might need to resize anyway but chances are not.
 	dst.WriteString("INSERT INTO ")
 	dst.WriteString(ec.table)
 	dst.WriteString(" (")
@@ -349,19 +345,28 @@ func (ec *ExpressionChain) renderInsert(raw bool, dst *strings.Builder) ([]inter
 	for i := range ec.mainOperation.arguments {
 		if ec.mainOperation.arguments[i] == nil {
 			dst.WriteString("NULL")
+		} else if innerEC, ok := ec.mainOperation.arguments[i].(*ExpressionChain); ok {
+			// support using a query as a value
+			q, qArgs, err := innerEC.RenderRaw()
+			if err != nil {
+				return nil, errors.Wrap(err, "rendering a SQL insert")
+			}
+			if len(qArgs) != 0 {
+				args = append(args, qArgs...)
+			}
+			dst.WriteRune('(')
+			dst.WriteString(q)
+			dst.WriteRune(')')
 		} else {
 			dst.WriteRune('?')
+			args = append(args, ec.mainOperation.arguments[i])
 		}
 		if i != len(ec.mainOperation.arguments)-1 {
 			dst.WriteString(", ")
 		}
 	}
 	dst.WriteRune(')')
-	for i := range ec.mainOperation.arguments {
-		if ec.mainOperation.arguments[i] != nil {
-			args = append(args, ec.mainOperation.arguments[i])
-		}
-	}
+
 	// render conflict
 	conflictExpr, conflictArgs := ec.conflict.render()
 	if len(conflictExpr) > 0 {
@@ -420,31 +425,40 @@ func (ec *ExpressionChain) renderInsertMulti(raw bool, dst *strings.Builder) ([]
 	dst.WriteString(ec.mainOperation.expression)
 	dst.WriteString(") VALUES ")
 
+	args := make([]interface{}, 0, len(ec.mainOperation.arguments))
 	valueGroupCount := len(ec.mainOperation.arguments) / argCount
+	position := 0
 	for i := 0; i < valueGroupCount; i++ {
 		dst.WriteRune('(')
 		for j := 0; j < argCount; j++ {
-			if ec.mainOperation.arguments[i*(j+1)] == nil {
+			if ec.mainOperation.arguments[position] == nil {
 				dst.WriteString("NULL")
+			} else if innerEC, ok := ec.mainOperation.arguments[position].(*ExpressionChain); ok {
+				// support using a query as a value
+				q, qArgs, err := innerEC.RenderRaw()
+				if err != nil {
+					return nil, errors.Wrap(err, "rendering a SQL insert")
+				}
+				if len(qArgs) != 0 {
+					args = append(args, qArgs...)
+				}
+				dst.WriteRune('(')
+				dst.WriteString(q)
+				dst.WriteRune(')')
 			} else {
 				dst.WriteRune('?')
+				args = append(args, ec.mainOperation.arguments[position])
 			}
 			if j != argCount-1 {
 				dst.WriteString(", ")
 			}
+			position++
 		}
 		dst.WriteRune(')')
 		if i < valueGroupCount-1 {
 			dst.WriteString(", ")
 		}
 
-	}
-
-	args := make([]interface{}, 0, len(ec.mainOperation.arguments))
-	for i := range ec.mainOperation.arguments {
-		if ec.mainOperation.arguments != nil {
-			args = append(args, ec.mainOperation.arguments[i])
-		}
 	}
 
 	// render conflict
