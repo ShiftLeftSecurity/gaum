@@ -127,6 +127,25 @@ func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 	return o
 }
 
+// SetSQLRow Sets a field to a value that needs no escaping, it is assumed to be SQL valid (an
+// expression or column) it will append ROW to the values part because pg 12 updates
+func (o *OnUpdate) SetSQLRow(args ...string) *OnUpdate {
+	if len(args)%2 != 0 {
+		panic("arguments to `DoUpdate().SetSQL(...)` must be even in length")
+	}
+	var key string
+	for index, arg := range args {
+		if index%2 == 0 {
+			key = arg
+		} else {
+			*o.operatorList = append(*o.operatorList, argList{
+				text: "(" + key + ") = ROW(" + arg + ")",
+			})
+		}
+	}
+	return o
+}
+
 // Where Adds Where condition to an update on conflict, does not return the OnUpdate because it
 // is intended to be the last part of the expression.
 func (o *OnUpdate) Where(ec *ExpressionChain) {
