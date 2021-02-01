@@ -137,6 +137,11 @@ func AndConditions(conditions ...string) string {
 	return strings.Join(conditions, " AND ")
 }
 
+// OrConditions returns a list of conditions separated by OR
+func OrConditions(conditions ...string) string {
+	return strings.Join(conditions, " OR ")
+}
+
 // CompOperator represents a possible operator to compare two SQL expressions
 type CompOperator string
 
