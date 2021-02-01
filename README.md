@@ -244,6 +244,14 @@ And Conditions concatenates Several conditions using `AND`
 chain.AndConditions("a = 1", "b = 2") // -> a = 1 AND b = 2
 ```
 
+#### [OrConditions](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#OrConditions)
+
+Or Conditions concatenates Several conditions using `OR`
+
+```golang
+chain.OrConditions("a = 1", "b = 2") // -> a = 1 OR b = 2
+```
+
 #### [CompareExpressions](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/chain#CompareExpressions)
 
 Compare Expressions makes a comparision between two SQL values (columns, constants, etc) using one of
