@@ -63,7 +63,7 @@ func ExpandArgs(args []interface{}, querySegment string) (string, []interface{})
 // already rendered query, it does some consistency control and finally expands `(?)`.
 func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, error) {
 
-	// assume a nill pointer is a null
+	// assume a nil pointer is a null
 	// this is hacky, but it should work
 	otherArgs := make([]interface{}, len(args))
 	for index, arg := range args {
@@ -76,7 +76,7 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	args = otherArgs
 
 	// TODO: make this a bit less ugly
-	// TODO: identify escaped questionmarks
+	// TODO: identify escaped question marks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
 	queryWithArgs := &strings.Builder{}
@@ -126,11 +126,11 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 
 // PlaceholdersToPositional converts ? in a query into $<argument number> which postgres expects
 func PlaceholdersToPositional(q *strings.Builder, argCount int) (*strings.Builder, int, error) {
-	// TODO: identify escaped questionmarks
+	// TODO: identify escaped question marks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
 	newQ := &strings.Builder{}
-	// new string should accomodate the digits we are adding for positional arguments.
+	// new string should accommodate the digits we are adding for positional arguments.
 	renderedLength := q.Len() + digitSize(argCount)
 	if newQ.Len() < renderedLength {
 		newQ.Grow(renderedLength - newQ.Len())
@@ -155,13 +155,13 @@ func PlaceholdersToPositional(q *strings.Builder, argCount int) (*strings.Builde
 // but we won't enforce that here.
 func digitSize(argLen int) int {
 	var repSize int
-	argLenLen := int(len(strconv.Itoa(argLen)))
+	argLenLen := len(strconv.Itoa(argLen))
 	for i := 1; i < argLenLen; i++ {
-		a := (9 * int(math.Pow10(int(i)-1))) * i
+		a := (9 * int(math.Pow10(i-1))) * i
 		repSize += a
 	}
 
-	pow10 := math.Pow10(int(argLenLen) - 1)
+	pow10 := math.Pow10(argLenLen - 1)
 	repSize += (argLen - (int(pow10) - 1)) * argLenLen
 
 	return repSize

@@ -22,11 +22,6 @@ import (
 
 var _ Logger = &GoTestingLogger{}
 
-// NewGoTestingLoggerr returns a GoTestingLogger wrapping the passed testing.T.Log()
-func NewGoTestingLoggerr(t *testing.T) *GoTestingLogger {
-	return &GoTestingLogger{t: t}
-}
-
 // GoTestingLogger wraps the builtin log.Logger into our own Logger
 type GoTestingLogger struct {
 	t *testing.T

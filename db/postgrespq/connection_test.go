@@ -15,6 +15,7 @@
 package postgrespq
 
 import (
+	"context"
 	"log"
 	"os"
 	"testing"
@@ -30,7 +31,7 @@ func newDB(t *testing.T) connection.DB {
 	}
 	defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
 	goLoggerWrapped := logging.NewGoLogger(defaultLogger)
-	db, err := connector.Open(
+	db, err := connector.Open(context.TODO(),
 		&connection.Information{
 			Host:             "127.0.0.1",
 			Port:             5469,

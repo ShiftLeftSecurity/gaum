@@ -15,13 +15,15 @@
 package chain
 
 import (
+	"context"
+
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
 	gaumErrors "github.com/ShiftLeftSecurity/gaum/db/errors"
 	"github.com/pkg/errors"
 )
 
 // QueryIter is a convenience function to run the current chain through the db query with iterator.
-func (ec *ExpressionChain) QueryIter() (connection.ResultFetchIter, error) {
+func (ec *ExpressionChain) QueryIter(ctx context.Context) (connection.ResultFetchIter, error) {
 	if ec.hasErr() {
 		return nil, ec.getErr()
 	}
@@ -34,11 +36,11 @@ func (ec *ExpressionChain) QueryIter() (connection.ResultFetchIter, error) {
 		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
 			errors.Wrap(err, "rendering query to query with iterator")
 	}
-	return ec.db.QueryIter(q, ec.mainOperation.fields(), args...)
+	return ec.db.QueryIter(ctx, q, ec.mainOperation.fields(), args...)
 }
 
 // Query is a convenience function to run the current chain through the db query with iterator.
-func (ec *ExpressionChain) Query() (connection.ResultFetch, error) {
+func (ec *ExpressionChain) Query(ctx context.Context) (connection.ResultFetch, error) {
 	if ec.hasErr() {
 		return nil, ec.getErr()
 	}
@@ -51,11 +53,11 @@ func (ec *ExpressionChain) Query() (connection.ResultFetch, error) {
 		return func(interface{}) error { return nil },
 			errors.Wrap(err, "rendering query to query")
 	}
-	return ec.db.Query(q, ec.mainOperation.fields(), args...)
+	return ec.db.Query(ctx, q, ec.mainOperation.fields(), args...)
 }
 
 // QueryPrimitive is a convenience function to run the current chain through the db query.
-func (ec *ExpressionChain) QueryPrimitive() (connection.ResultFetch, error) {
+func (ec *ExpressionChain) QueryPrimitive(ctx context.Context) (connection.ResultFetch, error) {
 	if ec.hasErr() {
 		return nil, ec.getErr()
 	}
@@ -74,12 +76,12 @@ func (ec *ExpressionChain) QueryPrimitive() (connection.ResultFetch, error) {
 			errors.Errorf("querying for primitives can be done for 1 column only, got %d",
 				len(fields))
 	}
-	return ec.db.QueryPrimitive(q, fields[0], args...)
+	return ec.db.QueryPrimitive(ctx, q, fields[0], args...)
 }
 
 // Fetch is a one step version of the Query->fetch typical workflow.
-func (ec *ExpressionChain) Fetch(receiver interface{}) error {
-	fetch, err := ec.Query()
+func (ec *ExpressionChain) Fetch(ctx context.Context, receiver interface{}) error {
+	fetch, err := ec.Query(ctx)
 	if err != nil {
 		return errors.Wrap(err, "querying")
 	}
@@ -92,8 +94,8 @@ func (ec *ExpressionChain) Fetch(receiver interface{}) error {
 }
 
 // FetchIntoPrimitive is a one step version of the QueryPrimitive->fetch typical workflow.
-func (ec *ExpressionChain) FetchIntoPrimitive(receiver interface{}) error {
-	fetch, err := ec.QueryPrimitive()
+func (ec *ExpressionChain) FetchIntoPrimitive(ctx context.Context, receiver interface{}) error {
+	fetch, err := ec.QueryPrimitive(ctx)
 	if err != nil {
 		return errors.Wrap(err, "querying")
 	}
@@ -105,13 +107,13 @@ func (ec *ExpressionChain) FetchIntoPrimitive(receiver interface{}) error {
 }
 
 // Exec executes the chain, works for Insert and Update
-func (ec *ExpressionChain) Exec() (execError error) {
-	_, err := ec.ExecResult()
+func (ec *ExpressionChain) Exec(ctx context.Context) (execError error) {
+	_, err := ec.ExecResult(ctx)
 	return err
 }
 
 // ExecResult executes the chain and returns rows affected info, works for Insert and Update
-func (ec *ExpressionChain) ExecResult() (rowsAffected int64, execError error) {
+func (ec *ExpressionChain) ExecResult(ctx context.Context) (rowsAffected int64, execError error) {
 	if ec.hasErr() {
 		execError = ec.getErr()
 		return
@@ -128,36 +130,36 @@ func (ec *ExpressionChain) ExecResult() (rowsAffected int64, execError error) {
 
 	// If Set is implied, we need to start a transaction
 	if ec.set != "" && !ec.db.IsTransaction() {
-		db, execError = ec.db.BeginTransaction()
+		db, execError = ec.db.BeginTransaction(ctx)
 		if execError != nil {
 			return 0, errors.Wrap(execError, "starting transaction to run SET LOCAL")
 		}
 		defer func() {
 			if execError != nil {
-				err := db.RollbackTransaction()
+				err := db.RollbackTransaction(ctx)
 				execError = errors.Wrapf(execError,
 					"there was a failure running the expression and also rolling back te transaction: %v",
 					err)
 			} else {
-				err := db.CommitTransaction()
+				err := db.CommitTransaction(ctx)
 				execError = errors.Wrap(err, "could not commit the transaction")
 			}
 		}()
 	}
 
 	if ec.set != "" && ec.db.IsTransaction() {
-		execError = db.Set(ec.set)
+		execError = db.Set(ctx, ec.set)
 		if execError != nil {
 			return 0, errors.Wrap(execError, "running set for this transaction")
 		}
 	}
 
-	return db.ExecResult(q, args...)
+	return db.ExecResult(ctx, q, args...)
 }
 
 // Raw executes the query and tries to scan the result into fields without much safeguard nor
 // intelligence so you will have to put some of your own
-func (ec *ExpressionChain) Raw(fields ...interface{}) error {
+func (ec *ExpressionChain) Raw(ctx context.Context, fields ...interface{}) error {
 	if ec.hasErr() {
 		return ec.getErr()
 	}
@@ -168,7 +170,7 @@ func (ec *ExpressionChain) Raw(fields ...interface{}) error {
 	if err != nil {
 		return errors.Wrap(err, "rendering query to raw query")
 	}
-	err = ec.db.Raw(q, args, fields...)
+	err = ec.db.Raw(ctx, q, args, fields...)
 	if err == gaumErrors.ErrNoRows {
 		return err
 	}

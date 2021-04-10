@@ -16,20 +16,10 @@ package chain
 
 import (
 	"reflect"
-	"sync"
 	"testing"
 )
 
 func TestExpressionChain_Render(t *testing.T) {
-	type fields struct {
-		lock          sync.Mutex
-		segments      []querySegmentAtom
-		table         string
-		mainOperation querySegmentAtom
-		limit         *querySegmentAtom
-		offset        *querySegmentAtom
-	}
-
 	tests := []struct {
 		name     string
 		chain    *ExpressionChain

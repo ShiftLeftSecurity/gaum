@@ -14,7 +14,11 @@
 
 package logging
 
-import "github.com/jackc/pgx"
+import (
+	"context"
+
+	"github.com/jackc/pgx/v4"
+)
 
 // Logger provides a seemingly sane logging interface.
 type Logger interface {
@@ -38,7 +42,7 @@ type PgxLogAdapter struct {
 }
 
 // Log Satisfies pgx.Logger
-func (l *PgxLogAdapter) Log(level pgx.LogLevel, msg string, data map[string]interface{}) {
+func (l *PgxLogAdapter) Log(_ context.Context, level pgx.LogLevel, msg string, data map[string]interface{}) {
 	logArgs := make([]interface{}, 0, len(data))
 	for k, v := range data {
 		logArgs = append(logArgs, k, v)

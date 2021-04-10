@@ -20,16 +20,15 @@ import (
 	"log"
 	"os"
 	"reflect"
-	"strings"
-	"time"
 
+	"github.com/ShiftLeftSecurity/gaum/db/connection"
 	gaumErrors "github.com/ShiftLeftSecurity/gaum/db/errors"
 	"github.com/ShiftLeftSecurity/gaum/db/logging"
 	"github.com/ShiftLeftSecurity/gaum/db/srm"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/pkg/errors"
-
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	"github.com/jackc/pgx"
 )
 
 var _ connection.DatabaseHandler = &Connector{}
@@ -44,9 +43,9 @@ type Connector struct {
 const DefaultPGPoolMaxConn = 10
 
 // Open opens a connection to postgres and returns it wrapped into a connection.DB
-func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
+func (c *Connector) Open(ctx context.Context, ci *connection.Information) (connection.DB, error) {
 	// Ill be opinionated here and use the most efficient params.
-	var config pgx.ConnPoolConfig
+	var config *pgxpool.Config
 	var conLogger logging.Logger
 	if ci != nil {
 		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
@@ -54,28 +53,32 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 			llevel = pgx.LogLevelError
 		}
 		conLogger = ci.Logger
-		config = pgx.ConnPoolConfig{
-			ConnConfig: pgx.ConnConfig{
-				Host:     ci.Host,
-				Port:     ci.Port,
-				Database: ci.Database,
-				User:     ci.User,
-				Password: ci.Password,
+		config = &pgxpool.Config{
+			ConnConfig: &pgx.ConnConfig{
+				Config: pgconn.Config{
+					Host:     ci.Host,
+					Port:     ci.Port,
+					Database: ci.Database,
+					User:     ci.User,
+					Password: ci.Password,
 
-				TLSConfig:         ci.TLSConfig,
-				UseFallbackTLS:    ci.UseFallbackTLS,
-				FallbackTLSConfig: ci.FallbackTLSConfig,
+					TLSConfig:         ci.TLSConfig,
+					// FIXME: handle these
+					// UseFallbackTLS:    ci.UseFallbackTLS,
+					// FallbackTLSConfig: ci.FallbackTLSConfig,
+				},
+
 				Logger:            logging.NewPgxLogAdapter(conLogger),
 				LogLevel:          llevel,
 			},
-			MaxConnections: ci.MaxConnPoolConns,
+			MaxConns: int32(ci.MaxConnPoolConns),
 		}
 		if ci.CustomDial != nil {
-			config.ConnConfig.Dial = ci.CustomDial
+			config.ConnConfig.Config.DialFunc = ci.CustomDial
 		}
 	}
 	if c.ConnectionString != "" {
-		csconfig, err := pgx.ParseConnectionString(c.ConnectionString)
+		csconfig, err := pgx.ParseConfig(c.ConnectionString)
 		if err != nil {
 			return nil, errors.Wrap(err, "parsing connection string")
 		}
@@ -84,48 +87,45 @@ func (c *Connector) Open(ci *connection.Information) (connection.DB, error) {
 			if llevelErr != nil {
 				llevel = pgx.LogLevelError
 			}
-			config.ConnConfig = csconfig.Merge(pgx.ConnConfig{
-				Host:     ci.Host,
-				Port:     ci.Port,
-				Database: ci.Database,
-				User:     ci.User,
-				Password: ci.Password,
-
-				TLSConfig:         ci.TLSConfig,
-				UseFallbackTLS:    ci.UseFallbackTLS,
-				FallbackTLSConfig: ci.FallbackTLSConfig,
-				Logger:            logging.NewPgxLogAdapter(ci.Logger),
-				LogLevel:          llevel,
-			})
+			cc := config.ConnConfig
+			cc.Host = ci.Host
+			cc.Port = ci.Port
+			cc.Database = ci.Database
+			cc.User = ci.User
+			cc.Password = ci.Password
+			cc.TLSConfig = ci.TLSConfig
+			// FIXME: handle these
+			// UseFallbackTLS:    ci.UseFallbackTLS,
+			// FallbackTLSConfig: ci.FallbackTLSConfig,
+			cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
+			cc.LogLevel = llevel
 		} else {
 			defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
 			csconfig.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
 			conLogger = logging.NewGoLogger(defaultLogger)
-			config = pgx.ConnPoolConfig{
-				MaxConnections: DefaultPGPoolMaxConn,
+			config = &pgxpool.Config{
+				MaxConns: DefaultPGPoolMaxConn,
 				ConnConfig:     csconfig,
 			}
 		}
 
 	}
 
-	conn, err := pgx.NewConnPool(config)
+	conn, err := pgxpool.ConnectConfig(ctx, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "connecting to postgres database")
 	}
 	return &DB{
 		conn:        conn,
 		logger:      conLogger,
-		execTimeout: ci.QueryExecTimeout,
 	}, nil
 }
 
 // DB wraps pgx.Conn into a struct that implements connection.DB
 type DB struct {
-	conn        *pgx.ConnPool
-	tx          *pgx.Tx
+	conn        *pgxpool.Pool
+	tx          pgx.Tx
 	logger      logging.Logger
-	execTimeout *time.Duration
 }
 
 // Clone returns a copy of DB with the same underlying Connection
@@ -136,44 +136,23 @@ func (d *DB) Clone() connection.DB {
 	}
 }
 
-func snakesToCamels(s string) string {
-	var c string
-	var snake bool
-	for i, v := range s {
-		if i == 0 {
-			c += strings.ToUpper(string(v))
-			continue
-		}
-		if v == '_' {
-			snake = true
-			continue
-		}
-		if snake {
-			c += strings.ToUpper(string(v))
-			continue
-		}
-		c += string(v)
-	}
-	return c
-}
-
 // EQueryIter Calls EscapeArgs before invoking QueryIter
-func (d *DB) EQueryIter(statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
+func (d *DB) EQueryIter(ctx context.Context, statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
 	s, a, err := connection.EscapeArgs(statement, args)
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.QueryIter(s, fields, a)
+	return d.QueryIter(ctx, s, fields, a)
 }
 
 // QueryIter returns an iterator that can be used to fetch results one by one, beware this holds
 // the connection until fetching is done.
 // the passed fields are supposed to correspond to the fields being brought from the db, no
 // check is performed on this.
-func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
-	var rows *pgx.Rows
+func (d *DB) QueryIter(ctx context.Context, statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
+	var rows pgx.Rows
 	var err error
-	var connQ func(string, ...interface{}) (*pgx.Rows, error)
+	var connQ func(context.Context, string, ...interface{}) (pgx.Rows, error)
 	if d.tx != nil {
 		connQ = d.tx.Query
 	} else if d.conn != nil {
@@ -183,9 +162,9 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 	}
 
 	if len(args) != 0 {
-		rows, err = connQ(statement, args...)
+		rows, err = connQ(ctx, statement, args...)
 	} else {
-		rows, err = connQ(statement)
+		rows, err = connQ(ctx, statement)
 	}
 	if err != nil {
 		return func(interface{}) (bool, func(), error) { return false, func() {}, nil },
@@ -203,7 +182,7 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 		sqlQueryfields := rows.FieldDescriptions()
 		fields = make([]string, len(sqlQueryfields), len(sqlQueryfields))
 		for i, v := range sqlQueryfields {
-			fields[i] = v.Name
+			fields[i] = string(v.Name)
 		}
 	}
 	return func(destination interface{}) (bool, func(), error) {
@@ -231,20 +210,20 @@ func (d *DB) QueryIter(statement string, fields []string, args ...interface{}) (
 }
 
 // EQueryPrimitive calls EscapeArgs before invoking QueryPrimitive.
-func (d *DB) EQueryPrimitive(statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
+func (d *DB) EQueryPrimitive(ctx context.Context, statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
 	s, a, err := connection.EscapeArgs(statement, args)
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.QueryPrimitive(s, field, a)
+	return d.QueryPrimitive(ctx, s, field, a)
 }
 
 // QueryPrimitive returns a function that allows recovering the results of the query but to a slice
 // of a primitive type, only allowed if the query fetches one field.
-func (d *DB) QueryPrimitive(statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
-	var rows *pgx.Rows
+func (d *DB) QueryPrimitive(ctx context.Context, statement string, _ string, args ...interface{}) (connection.ResultFetch, error) {
+	var rows pgx.Rows
 	var err error
-	var connQ func(string, ...interface{}) (*pgx.Rows, error)
+	var connQ func(context.Context, string, ...interface{}) (pgx.Rows, error)
 	if d.tx != nil {
 		connQ = d.tx.Query
 	} else if d.conn != nil {
@@ -254,9 +233,9 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 	}
 
 	if len(args) != 0 {
-		rows, err = connQ(statement, args...)
+		rows, err = connQ(ctx, statement, args...)
 	} else {
-		rows, err = connQ(statement)
+		rows, err = connQ(ctx, statement)
 	}
 	if err != nil {
 		return func(interface{}) error { return nil },
@@ -284,7 +263,7 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 			// Try to fetch the data
 			err = rows.Scan(newElemPtr.Interface())
 			if err != nil {
-				defer rows.Close()
+				rows.Close()
 				return errors.Wrap(err, "scanning values into recipient, connection was closed")
 			}
 			// Add to the passed slice, this will actually add to an already populated slice if one
@@ -296,20 +275,20 @@ func (d *DB) QueryPrimitive(statement string, field string, args ...interface{})
 }
 
 // EQuery calls EscapeArgs before invoking Query
-func (d *DB) EQuery(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
+func (d *DB) EQuery(ctx context.Context, statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
 	s, a, err := connection.EscapeArgs(statement, args)
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.Query(s, fields, a)
+	return d.Query(ctx, s, fields, a)
 }
 
 // Query returns a function that allows recovering the results of the query, beware the connection
-// is held until the returned closusure is invoked.
-func (d *DB) Query(statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
-	var rows *pgx.Rows
+// is held until the returned closure is invoked.
+func (d *DB) Query(ctx context.Context, statement string, fields []string, args ...interface{}) (connection.ResultFetch, error) {
+	var rows pgx.Rows
 	var err error
-	var connQ func(string, ...interface{}) (*pgx.Rows, error)
+	var connQ func(context.Context, string, ...interface{}) (pgx.Rows, error)
 	if d.tx != nil {
 		connQ = d.tx.Query
 	} else if d.conn != nil {
@@ -318,9 +297,9 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 		return nil, gaumErrors.NoDB
 	}
 	if len(args) != 0 {
-		rows, err = connQ(statement, args...)
+		rows, err = connQ(ctx, statement, args...)
 	} else {
-		rows, err = connQ(statement)
+		rows, err = connQ(ctx, statement)
 	}
 	if err != nil {
 		return func(interface{}) error { return nil },
@@ -348,7 +327,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			sqlQueryfields := rows.FieldDescriptions()
 			fields = make([]string, len(sqlQueryfields), len(sqlQueryfields))
 			for i, v := range sqlQueryfields {
-				fields[i] = v.Name
+				fields[i] = string(v.Name)
 			}
 		}
 
@@ -373,7 +352,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 				newElemType = newElemPtr.Elem().Type()
 				newElem = newElemPtr.Elem()
 			}
-			// Get it's type.
+			// Get its type.
 			ttod := newElem.Type()
 
 			// map the fields of the type to their potential sql names, this is the only "magic"
@@ -383,7 +362,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 					reflect.Map, reflect.Slice,
 				})
 			if err != nil {
-				defer rows.Close()
+				rows.Close()
 				return errors.Wrapf(err, "cant fetch data into %T", destination)
 			}
 
@@ -393,7 +372,7 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 			// Try to fetch the data
 			err = rows.Scan(fieldRecipients...)
 			if err != nil {
-				defer rows.Close()
+				rows.Close()
 				return errors.Wrap(err, "scanning values into recipient, connection was closed")
 			}
 			// Add to the passed slice, this will actually add to an already populated slice if one
@@ -405,37 +384,25 @@ func (d *DB) Query(statement string, fields []string, args ...interface{}) (conn
 }
 
 // ERaw calls EscapeArgs before invoking Raw
-func (d *DB) ERaw(statement string, args []interface{}, fields ...interface{}) error {
+func (d *DB) ERaw(ctx context.Context, statement string, args []interface{}, fields ...interface{}) error {
 	s, a, err := connection.EscapeArgs(statement, args)
 	if err != nil {
 		return errors.Wrap(err, "escaping arguments")
 	}
-	return d.Raw(s, a, fields)
+	return d.Raw(ctx, s, a, fields)
 }
 
-// Raw will run the passed statement with the passed args and scan the first resul, if any,
+// Raw will run the passed statement with the passed args and scan the first result, if any,
 // to the passed fields.
-func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) error {
-	var rows *pgx.Row
+func (d *DB) Raw(ctx context.Context, statement string, args []interface{}, fields ...interface{}) error {
+	var rows pgx.Row
 
-	if d.execTimeout != nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), *d.execTimeout)
-		defer cancel()
-		if d.tx != nil {
-			rows = d.tx.QueryRowEx(ctx, statement, nil, args...)
-		} else if d.conn != nil {
-			rows = d.conn.QueryRowEx(ctx, statement, nil, args...)
-		} else {
-			return gaumErrors.NoDB
-		}
+	if d.tx != nil {
+		rows = d.tx.QueryRow(ctx, statement, args...)
+	} else if d.conn != nil {
+		rows = d.conn.QueryRow(ctx, statement, args...)
 	} else {
-		if d.tx != nil {
-			rows = d.tx.QueryRow(statement, args...)
-		} else if d.conn != nil {
-			rows = d.conn.QueryRow(statement, args...)
-		} else {
-			return gaumErrors.NoDB
-		}
+		return gaumErrors.NoDB
 	}
 
 	// Try to fetch the data
@@ -450,52 +417,41 @@ func (d *DB) Raw(statement string, args []interface{}, fields ...interface{}) er
 }
 
 // EExec calls EscapeArgs before invoking Exec
-func (d *DB) EExec(statement string, args ...interface{}) error {
+func (d *DB) EExec(ctx context.Context, statement string, args ...interface{}) error {
 	s, a, err := connection.EscapeArgs(statement, args)
 	if err != nil {
 		return errors.Wrap(err, "escaping arguments")
 	}
-	return d.Exec(s, a...)
+	return d.Exec(ctx, s, a...)
 }
 
 // Exec will run the statement and expect nothing in return.
-func (d *DB) Exec(statement string, args ...interface{}) error {
-	_, err := d.exec(statement, args...)
+func (d *DB) Exec(ctx context.Context, statement string, args ...interface{}) error {
+	_, err := d.exec(ctx, statement, args...)
 	return err
 }
 
 // ExecResult will run the statement and return the number of rows affected.
-func (d *DB) ExecResult(statement string, args ...interface{}) (int64, error) {
-	connTag, err := d.exec(statement, args...)
+func (d *DB) ExecResult(ctx context.Context, statement string, args ...interface{}) (int64, error) {
+	connTag, err := d.exec(ctx, statement, args...)
 	if err != nil {
 		return 0, err
 	}
 	return connTag.RowsAffected(), nil
 }
 
-func (d *DB) exec(statement string, args ...interface{}) (pgx.CommandTag, error) {
-	var connTag pgx.CommandTag
+func (d *DB) exec(ctx context.Context, statement string, args ...interface{}) (pgconn.CommandTag, error) {
+	var connTag pgconn.CommandTag
 	var err error
 
-	if d.execTimeout != nil {
-		ctx, cancel := context.WithTimeout(context.TODO(), *d.execTimeout)
-		defer cancel()
-		if d.tx != nil {
-			connTag, err = d.tx.ExecEx(ctx, statement, nil, args...)
-		} else if d.conn != nil {
-			connTag, err = d.conn.ExecEx(ctx, statement, nil, args...)
-		} else {
-			return connTag, gaumErrors.NoDB
-		}
+	if d.tx != nil {
+		connTag, err = d.tx.Exec(ctx, statement, args...)
+	} else if d.conn != nil {
+		connTag, err = d.conn.Exec(ctx, statement, args...)
 	} else {
-		if d.tx != nil {
-			connTag, err = d.tx.Exec(statement, args...)
-		} else if d.conn != nil {
-			connTag, err = d.conn.Exec(statement, args...)
-		} else {
-			return connTag, gaumErrors.NoDB
-		}
+		return connTag, gaumErrors.NoDB
 	}
+
 	if err != nil {
 		return connTag, errors.Wrapf(err, "querying database, obtained %v", connTag)
 	}
@@ -504,11 +460,11 @@ func (d *DB) exec(statement string, args ...interface{}) (pgx.CommandTag, error)
 
 // BeginTransaction returns a new DB that will use the transaction instead of the basic conn.
 // if the transaction is already started the same will be returned.
-func (d *DB) BeginTransaction() (connection.DB, error) {
+func (d *DB) BeginTransaction(ctx context.Context) (connection.DB, error) {
 	if d.tx != nil {
 		return nil, gaumErrors.AlreadyInTX
 	}
-	tx, err := d.conn.Begin()
+	tx, err := d.conn.Begin(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "trying to begin a transaction")
 	}
@@ -523,33 +479,33 @@ func (d *DB) IsTransaction() bool {
 	return d.tx != nil
 }
 
-// CommitTransaction commits the transaction if any is in course, beavior comes straight from
+// CommitTransaction commits the transaction if any is in course, behavior comes straight from
 // pgx.
-func (d *DB) CommitTransaction() error {
+func (d *DB) CommitTransaction(ctx context.Context) error {
 	if d.tx == nil {
 		return gaumErrors.NoTX
 	}
 
-	return d.tx.Commit()
+	return d.tx.Commit(ctx)
 }
 
-// RollbackTransaction rolls back the transaction if any is in course, beavior comes straight from
+// RollbackTransaction rolls back the transaction if any is in course, behavior comes straight from
 // pgx.
-func (d *DB) RollbackTransaction() error {
+func (d *DB) RollbackTransaction(ctx context.Context) error {
 	if d.tx == nil {
 		return gaumErrors.NoTX
 	}
-	return d.tx.Rollback()
+	return d.tx.Rollback(ctx)
 }
 
 // Set tries to run `SET LOCAL` with the passed parameters if there is an ongoing transaction.
 // https://www.postgresql.org/docs/9.2/static/sql-set.html
-func (d *DB) Set(set string) error {
+func (d *DB) Set(ctx context.Context, set string) error {
 	if d.tx == nil {
 		return gaumErrors.NoTX
 	}
 	// TODO check if this will work in the `SET LOCAL $1` arg format
-	cTag, err := d.tx.Exec("SET LOCAL " + set)
+	cTag, err := d.tx.Exec(ctx, "SET LOCAL " + set)
 	if err != nil {
 		return errors.Wrapf(err, "trying to set local, returned: %s", cTag)
 	}
@@ -559,30 +515,29 @@ func (d *DB) Set(set string) error {
 // BulkInsert will use postgres copy function to try to insert a lot of data.
 // You might need to use pgx types for the values to reduce probability of failure.
 // https://godoc.org/github.com/jackc/pgx#Conn.CopyFrom
-func (d *DB) BulkInsert(tableName string, columns []string, values [][]interface{}) (execError error) {
-	//func (c *Conn) CopyFrom(tableName Identifier, columnNames []string, rowSrc CopyFromSource) (int, error)
+func (d *DB) BulkInsert(ctx context.Context, tableName string, columns []string, values [][]interface{}) (execError error) {
 	tx := d.tx
 	if d.tx == nil {
 		var err error
-		tx, err = d.conn.Begin()
+		tx, err = d.conn.Begin(ctx)
 		if err != nil {
 			return errors.Wrap(err, "beginning transaction for bulk insert")
 		}
 		defer func() {
 			if execError != nil {
-				err := tx.Rollback()
+				err := tx.Rollback(ctx)
 				execError = errors.Wrapf(execError,
 					"there was a failure running the expression and also rolling back te transaction: %v",
 					err)
 			} else {
-				err := tx.Commit()
+				err := tx.Commit(ctx)
 				execError = errors.Wrap(err, "could not commit the transaction")
 			}
 		}()
 	}
 	copySource := pgx.CopyFromRows(values)
-	rowsAffected, err := tx.CopyFrom(pgx.Identifier{tableName}, columns, copySource)
-	if rowsAffected != len(values) {
+	rowsAffected, err := tx.CopyFrom(ctx, pgx.Identifier{tableName}, columns, copySource)
+	if rowsAffected != int64(len(values)) {
 		return errors.Errorf("%d rows were passed but only %d inserted, will rollback",
 			len(values), rowsAffected)
 	}

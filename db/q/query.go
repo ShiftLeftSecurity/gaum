@@ -22,6 +22,8 @@ from our users.
 package q
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	c "github.com/ShiftLeftSecurity/gaum/db/chain"
@@ -55,12 +57,12 @@ var driverConnectors = map[Driver]connConstructor{
 // RawQueryOne runs the passed in <query> with the safely inserted <args> through <db> and fetches
 // the first value into <recipient>.RawQueryOne
 // <receiver> must be of a type that supports de-serialization of all columns into it.
-func RawQueryOne(db connection.DB, recipient interface{}, query string, args ...interface{}) error {
+func RawQueryOne(ctx context.Context, db connection.DB, recipient interface{}, query string, args ...interface{}) error {
 	escapedQuery, explodedArgs, err := c.MarksToPlaceholders(query, args)
 	if err != nil {
 		return errors.Wrap(err, "escaping question marks in query")
 	}
-	fetcher, err := db.QueryIter(escapedQuery, []string{}, explodedArgs)
+	fetcher, err := db.QueryIter(ctx, escapedQuery, []string{}, explodedArgs)
 	if err != nil {
 		return errors.Wrap(err, "querying database")
 	}
@@ -75,12 +77,12 @@ func RawQueryOne(db connection.DB, recipient interface{}, query string, args ...
 // RawQuery runs the passed in <query> with the safely inserted <args> through <db> and fetches
 // the values into <recipientSlice> that must be a slice of a type that supports de-serialization
 // of all columns into it.
-func RawQuery(db connection.DB, recipientSlice interface{}, query string, args ...interface{}) error {
+func RawQuery(ctx context.Context, db connection.DB, recipientSlice interface{}, query string, args ...interface{}) error {
 	escapedQuery, explodedArgs, err := c.MarksToPlaceholders(query, args)
 	if err != nil {
 		return errors.Wrap(err, "escaping question marks in query")
 	}
-	fetcher, err := db.Query(escapedQuery, []string{}, explodedArgs)
+	fetcher, err := db.Query(ctx, escapedQuery, []string{}, explodedArgs)
 	if err != nil {
 		return errors.Wrap(err, "querying database")
 	}
@@ -93,12 +95,12 @@ func RawQuery(db connection.DB, recipientSlice interface{}, query string, args .
 
 // RawExec runs the passed in <query> with the safely inserted <args> through <db>, no values are
 // returned except for success/error.
-func RawExec(db connection.DB, query string, args ...interface{}) error {
+func RawExec(ctx context.Context, db connection.DB, query string, args ...interface{}) error {
 	escapedQuery, explodedArgs, err := c.MarksToPlaceholders(query, args)
 	if err != nil {
 		return errors.Wrap(err, "escaping question marks in query")
 	}
-	err = db.Exec(escapedQuery, explodedArgs)
+	err = db.Exec(ctx, escapedQuery, explodedArgs)
 	if err != nil {
 		return errors.Wrap(err, "executing statement")
 	}
@@ -113,7 +115,7 @@ func RawExec(db connection.DB, query string, args ...interface{}) error {
 // * github.com/ShiftLeftSecurity/gaum/db/postgres
 //
 // * github.com/ShiftLeftSecurity/gaum/db/postgrespq
-func NewDB(connectionString string, driver Driver,
+func NewDB(ctx context.Context, connectionString string, driver Driver,
 	logger logging.Logger, logLevel connection.LogLevel) (connection.DB, error) {
 	buildConnector, exists := driverConnectors[driver]
 	if !exists {
@@ -124,7 +126,7 @@ func NewDB(connectionString string, driver Driver,
 		Logger:   logger,
 		LogLevel: logLevel,
 	}
-	dbConnection, err := connector.Open(connectionInfo)
+	dbConnection, err := connector.Open(ctx, connectionInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "opening a new connection to the database")
 	}
@@ -133,7 +135,7 @@ func NewDB(connectionString string, driver Driver,
 
 // New crafts a new Q query containing a db connection to the db specified by connectionString
 // and the selected driver and logging settings.
-func New(connectionString string, driver Driver,
+func New(ctx context.Context, connectionString string, driver Driver,
 	logger logging.Logger, logLevel connection.LogLevel) (*Q, error) {
 	buildConnector, exists := driverConnectors[driver]
 	if !exists {
@@ -144,7 +146,7 @@ func New(connectionString string, driver Driver,
 		Logger:   logger,
 		LogLevel: logLevel,
 	}
-	dbConnection, err := connector.Open(connectionInfo)
+	dbConnection, err := connector.Open(ctx, connectionInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "opening a new connection to the database")
 	}
@@ -347,8 +349,8 @@ func (q *Q) Returning(args ...string) *Q {
 //
 // <receiver> must be of a type that supports de-serialization of all columns into it.
 // This works with `SELECT` and `INSERT INTO ... RETURNING ...`
-func (q *Q) QueryOne(receiver interface{}) error {
-	fetcher, err := q.query.QueryIter()
+func (q *Q) QueryOne(ctx context.Context, receiver interface{}) error {
+	fetcher, err := q.query.QueryIter(ctx)
 	if err != nil {
 		return errors.Wrap(err, "running query")
 	}
@@ -364,8 +366,8 @@ func (q *Q) QueryOne(receiver interface{}) error {
 // expected to be a slice of a type that supports de-serialization of all columns into it.
 //
 // This works with `SELECT` and `INSERT INTO ... RETURNING ...`
-func (q *Q) QueryMany(receiverSlice interface{}) error {
-	fetcher, err := q.query.Query()
+func (q *Q) QueryMany(ctx context.Context, receiverSlice interface{}) error {
+	fetcher, err := q.query.Query(ctx)
 	if err != nil {
 		return errors.Wrap(err, "running query")
 	}
@@ -379,8 +381,8 @@ func (q *Q) QueryMany(receiverSlice interface{}) error {
 // Exec executes the query in Q not expecting nor returning any results other than success/error
 // This works with any statement not returning values and potentially the ones returning values
 // too but values are ignored (untested claim)
-func (q *Q) Exec() error {
-	return q.query.Exec()
+func (q *Q) Exec(ctx context.Context) error {
+	return q.query.Exec(ctx)
 }
 
 // DB returns the `connection.DB` being used for this Q query execution.
