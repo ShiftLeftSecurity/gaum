@@ -23,7 +23,6 @@ import (
 
 	"github.com/ShiftLeftSecurity/gaum/db/chain"
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	"github.com/jackc/pgx/v4"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -54,8 +53,8 @@ func DoTestConnector_QueryStar(t *testing.T, newDB NewDB) {
 	testConnector_QueryStar(t, newDB)
 }
 
-func DoTestConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
-	testConnector_QueryReturningWithError(t, newDB)
+func DoTestConnector_QueryReturningWithError(t *testing.T, newDB NewDB, expectQueryError bool) {
+	testConnector_QueryReturningWithError(t, newDB, expectQueryError)
 }
 
 func DoTestConnector_QueryNoRows(t *testing.T, newDB NewDB) {
@@ -447,7 +446,7 @@ func testConnector_QueryStar(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
+func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB, expectQueryError bool) {
 	db := newDB(t)
 	type row struct {
 		Id          int
@@ -463,25 +462,33 @@ func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 		Returning("*")
 
 	fetcher, err := query.Query(context.TODO())
-	if err != nil {
-		t.Errorf("failed to query: %v", err)
-	}
-
-	var multiRow []row
-	err = fetcher(&multiRow)
-	if err == nil {
-		t.Error("expected to receive an error, instead got nil")
-	}
-	if pgErr, ok := err.(pgx.PgError); ok {
-		if pgErr.Severity != "ERROR" {
-			t.Error("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
-		}
-		if pgErr.Code != "23505" {
-			t.Error("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
+	if expectQueryError {
+		if err == nil {
+			t.Error("expected to receive an error, instead got nil")
 		}
 	} else {
-		t.Error("expected to receive a PgError error, instead got %T, %+v", err, err)
+		if err != nil {
+			t.Errorf("failed to query: %v", err)
+		}
+
+		var multiRow []row
+		err = fetcher(&multiRow)
+		if err == nil {
+			t.Error("expected to receive an error, instead got nil")
+		}
 	}
+
+	// FIXME: this error type went where exactly?
+	// if pgErr, ok := err.(pgx.PgError); ok {
+	// 	if pgErr.Severity != "ERROR" {
+	// 		t.Error("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
+	// 	}
+	// 	if pgErr.Code != "23505" {
+	// 		t.Error("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
+	// 	}
+	// } else {
+	// 	t.Error("expected to receive a PgError error, instead got %T, %+v", err, err)
+	// }
 }
 
 func testConnector_QueryNoRows(t *testing.T, newDB NewDB) {

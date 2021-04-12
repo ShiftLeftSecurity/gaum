@@ -27,7 +27,7 @@ import (
 
 func newDB(t *testing.T) connection.DB {
 	connector := Connector{
-		ConnectionString: "TODO",
+		ConnectionString: "postgresql://localhost",
 	}
 	defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
 	goLoggerWrapped := logging.NewGoLogger(defaultLogger)
@@ -66,7 +66,7 @@ func TestConnector_QueryStar(t *testing.T) {
 }
 
 func TestConnector_QueryReturningWithError(t *testing.T) {
-	connection_testing.DoTestConnector_QueryReturningWithError(t, newDB)
+	connection_testing.DoTestConnector_QueryReturningWithError(t, newDB, false)
 }
 
 func TestConnector_Distinct(t *testing.T) {

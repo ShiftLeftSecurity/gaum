@@ -26,9 +26,7 @@ import (
 )
 
 func newDB(t *testing.T) connection.DB {
-	connector := Connector{
-		ConnectionString: "TODO",
-	}
+	connector := Connector{}
 	defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
 	goLoggerWrapped := logging.NewGoLogger(defaultLogger)
 	db, err := connector.Open(context.TODO(),
@@ -66,7 +64,7 @@ func TestConnector_QueryStar(t *testing.T) {
 }
 
 func TestConnector_QueryReturningWithError(t *testing.T) {
-	connection_testing.DoTestConnector_QueryReturningWithError(t, newDB)
+	connection_testing.DoTestConnector_QueryReturningWithError(t, newDB, true)
 }
 
 func TestConnector_QueryNoRows(t *testing.T) {

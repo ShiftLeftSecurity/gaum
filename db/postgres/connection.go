@@ -44,77 +44,48 @@ const DefaultPGPoolMaxConn = 10
 
 // Open opens a connection to postgres and returns it wrapped into a connection.DB
 func (c *Connector) Open(ctx context.Context, ci *connection.Information) (connection.DB, error) {
-	// Ill be opinionated here and use the most efficient params.
-	var config *pgxpool.Config
+	// I'll be opinionated here and use the most efficient params.
+	config, err := pgxpool.ParseConfig(c.ConnectionString)
+	if err != nil {
+		return nil, errors.Wrap(err, "parsing connection string")
+	}
+
 	var conLogger logging.Logger
+	cc := config.ConnConfig
+	ccc := &cc.Config
 	if ci != nil {
 		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
 		if llevelErr != nil {
 			llevel = pgx.LogLevelError
 		}
+		ccc.Host = ci.Host
+		ccc.Port = ci.Port
+		ccc.Database = ci.Database
+		ccc.User = ci.User
+		ccc.Password = ci.Password
+		ccc.TLSConfig = ci.TLSConfig
+		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
 		conLogger = ci.Logger
-		config = &pgxpool.Config{
-			ConnConfig: &pgx.ConnConfig{
-				Config: pgconn.Config{
-					Host:     ci.Host,
-					Port:     ci.Port,
-					Database: ci.Database,
-					User:     ci.User,
-					Password: ci.Password,
-
-					TLSConfig:         ci.TLSConfig,
-					// FIXME: handle these
-					// UseFallbackTLS:    ci.UseFallbackTLS,
-					// FallbackTLSConfig: ci.FallbackTLSConfig,
-				},
-
-				Logger:            logging.NewPgxLogAdapter(conLogger),
-				LogLevel:          llevel,
-			},
-			MaxConns: int32(ci.MaxConnPoolConns),
-		}
+		cc.LogLevel = llevel
+		config.MaxConns = int32(ci.MaxConnPoolConns)
+		// FIXME: handle these
+		// UseFallbackTLS:    ci.UseFallbackTLS,
+		// FallbackTLSConfig: ci.FallbackTLSConfig,
 		if ci.CustomDial != nil {
-			config.ConnConfig.Config.DialFunc = ci.CustomDial
+			ccc.DialFunc = ci.CustomDial
 		}
-	}
-	if c.ConnectionString != "" {
-		csconfig, err := pgx.ParseConfig(c.ConnectionString)
-		if err != nil {
-			return nil, errors.Wrap(err, "parsing connection string")
-		}
-		if ci != nil {
-			llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
-			if llevelErr != nil {
-				llevel = pgx.LogLevelError
-			}
-			cc := config.ConnConfig
-			cc.Host = ci.Host
-			cc.Port = ci.Port
-			cc.Database = ci.Database
-			cc.User = ci.User
-			cc.Password = ci.Password
-			cc.TLSConfig = ci.TLSConfig
-			// FIXME: handle these
-			// UseFallbackTLS:    ci.UseFallbackTLS,
-			// FallbackTLSConfig: ci.FallbackTLSConfig,
-			cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
-			cc.LogLevel = llevel
-		} else {
-			defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
-			csconfig.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
-			conLogger = logging.NewGoLogger(defaultLogger)
-			config = &pgxpool.Config{
-				MaxConns: DefaultPGPoolMaxConn,
-				ConnConfig:     csconfig,
-			}
-		}
-
+	} else {
+		defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
+		cc.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
+		conLogger = logging.NewGoLogger(defaultLogger)
+		config.MaxConns = DefaultPGPoolMaxConn
 	}
 
 	conn, err := pgxpool.ConnectConfig(ctx, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "connecting to postgres database")
 	}
+
 	return &DB{
 		conn:        conn,
 		logger:      conLogger,

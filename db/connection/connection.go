@@ -52,7 +52,6 @@ type Information struct {
 	Database         string
 	User             string
 	Password         string
-	QueryExecTimeout *time.Duration // optionally set the maximum time a query can take to execute
 	ConnMaxLifetime  *time.Duration
 
 	TLSConfig         *tls.Config // config for TLS connection -- nil disables TLS
