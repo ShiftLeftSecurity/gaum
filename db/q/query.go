@@ -187,7 +187,7 @@ func (q *Q) Select(query string, args ...interface{}) *Q {
 // map comprises the fields, represented by the keys of the map and values,
 // represented by the values of the map to be inserted, Order in which the pair will appear is
 // not guaranteed given go's map implementation (of course key/value will always be in the
-// possition corresponding with each other within the query)
+// position corresponding with each other within the query)
 func (q *Q) Insert(insertPairs map[string]interface{}) *Q {
 	q.query.Insert(insertPairs)
 	return q
@@ -195,7 +195,7 @@ func (q *Q) Insert(insertPairs map[string]interface{}) *Q {
 
 // Update converts the existing Q query into an `UPDATE ...` SQL statement, the passed map
 // will be used to set column names (from map keys) and new values (from map values)
-// the order of the assignements within the query is not guaranteed given go's map
+// the order of the assignments within the query is not guaranteed given go's map
 // implementation so even if the resulting query of multiple calls might differ in the `SET`
 // section it will be equivalent.
 func (q *Q) Update(exprMap map[string]interface{}) *Q {

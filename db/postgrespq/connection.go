@@ -63,16 +63,15 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 		ccc.Database = ci.Database
 		ccc.User = ci.User
 		ccc.Password = ci.Password
-		ccc.TLSConfig = ci.TLSConfig
 		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
 		conLogger = ci.Logger
 		cc.LogLevel = llevel
 		if ci.CustomDial != nil {
 			ccc.DialFunc = ci.CustomDial
 		}
-		// FIXME: handle these
-		// UseFallbackTLS:    ci.UseFallbackTLS,
-		// FallbackTLSConfig: ci.FallbackTLSConfig,
+		if ci.ConnMaxLifetime != nil {
+			config.MaxConnLifetime = *ci.ConnMaxLifetime
+		}
 	} else {
 		defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
 		cc.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
@@ -165,7 +164,7 @@ func (d *DB) QueryIter(ctx context.Context, statement string, fields []string, a
 				reflect.Map, reflect.Slice,
 			})
 			if err != nil {
-				rows.Close()
+				_ = rows.Close()
 				return false, func() {}, errors.Wrapf(err, "cant fetch data into %T", destination)
 			}
 		}
@@ -173,12 +172,12 @@ func (d *DB) QueryIter(ctx context.Context, statement string, fields []string, a
 
 		err = rows.Scan(fieldRecipients...)
 		if err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return false, func() {}, errors.Wrap(err,
 				"scanning values into recipient, connection was closed")
 		}
 
-		return rows.Next(), func() { rows.Close() }, rows.Err()
+		return rows.Next(), func() { _ = rows.Close() }, rows.Err()
 	}, nil
 }
 
@@ -191,9 +190,9 @@ func (d *DB) EQueryPrimitive(ctx context.Context, statement string, field string
 	return d.QueryPrimitive(ctx, s, field, a...)
 }
 
-// QueryPrimitive returns a function that allowss recovering the results of the query but to a slice
+// QueryPrimitive returns a function that allows recovering the results of the query but to a slice
 // of a primitive type, only allowed if the query fetches one field.
-func (d *DB) QueryPrimitive(ctx context.Context, statement string, field string, args ...interface{}) (connection.ResultFetch, error) {
+func (d *DB) QueryPrimitive(ctx context.Context, statement string, _ string, args ...interface{}) (connection.ResultFetch, error) {
 	var rows *sql.Rows
 	var err error
 	var connQ func(context.Context, string, ...interface{}) (*sql.Rows, error)
@@ -215,7 +214,7 @@ func (d *DB) QueryPrimitive(ctx context.Context, statement string, field string,
 			errors.Wrap(err, "querying database")
 	}
 	return func(destination interface{}) error {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
 			return errors.New("YOU NEED TO PASS A *[]T, if you pass a `[]T` or `[]*T` or `T` you'll get this message again")
 		}
@@ -280,7 +279,7 @@ func (d *DB) Query(ctx context.Context, statement string, fields []string, args 
 	var fieldMap map[string]reflect.StructField
 
 	return func(destination interface{}) error {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		if reflect.TypeOf(destination).Kind() != reflect.Ptr {
 			return errors.New("YOU NEED TO PASS A `*[]T`, if you pass a `[]T` or `[]*T` or `T` you'll get this message again")
 		}

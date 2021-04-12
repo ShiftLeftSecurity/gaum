@@ -16,7 +16,6 @@ package connection
 
 import (
 	"context"
-	"crypto/tls"
 	"net"
 	"strconv"
 	"strings"
@@ -54,9 +53,6 @@ type Information struct {
 	Password         string
 	ConnMaxLifetime  *time.Duration
 
-	TLSConfig         *tls.Config // config for TLS connection -- nil disables TLS
-	UseFallbackTLS    bool        // Try FallbackTLSConfig if connecting with TLSConfig fails. Used for preferring TLS, but allowing unencrypted, or vice-versa
-	FallbackTLSConfig *tls.Config // config for fallback TLS connection (only used if UseFallBackTLS is true)-- nil disables TLS
 	CustomDial        func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	// MaxConnPoolConns where applies will be used to determine the maximum amount of connections

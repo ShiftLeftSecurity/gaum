@@ -30,7 +30,7 @@ type GoTestingLogger struct {
 // composeMessage makes a rudimentary pastiche of the passed structured data as displaying it
 // properly is beyond the built-in log.Logger capabilities
 func (g *GoTestingLogger) composeMessage(msg, level string, ctx ...interface{}) string {
-	messageComponents := []string{}
+	var messageComponents []string
 	var key interface{}
 	if ctx == nil {
 		ctx = []interface{}{}

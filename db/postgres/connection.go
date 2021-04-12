@@ -63,16 +63,15 @@ func (c *Connector) Open(ctx context.Context, ci *connection.Information) (conne
 		ccc.Database = ci.Database
 		ccc.User = ci.User
 		ccc.Password = ci.Password
-		ccc.TLSConfig = ci.TLSConfig
 		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
 		conLogger = ci.Logger
 		cc.LogLevel = llevel
 		config.MaxConns = int32(ci.MaxConnPoolConns)
-		// FIXME: handle these
-		// UseFallbackTLS:    ci.UseFallbackTLS,
-		// FallbackTLSConfig: ci.FallbackTLSConfig,
 		if ci.CustomDial != nil {
 			ccc.DialFunc = ci.CustomDial
+		}
+		if ci.ConnMaxLifetime != nil {
+			config.MaxConnLifetime = *ci.ConnMaxLifetime
 		}
 	} else {
 		defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
