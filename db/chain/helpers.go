@@ -19,9 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/jackc/pgx"
-
 	"github.com/ShiftLeftSecurity/gaum/db/errors"
+	"github.com/jackc/pgx/v4"
 )
 
 const (
@@ -68,7 +67,7 @@ type Function interface {
 	Static(string) Function
 	// Parametric adds a placeholder and an argument to the function
 	Parametric(interface{}) Function
-	// Fn returns the rendered statemtn and list of arguments.
+	// Fn returns the rendered statement and list of arguments.
 	Fn() (string, []interface{})
 	// FnSelect returns a SelectArgument from this function
 	FnSelect() SelectArgument
@@ -164,7 +163,7 @@ var (
 	NLk CompOperator = "NOT LIKE"
 )
 
-// CompareExpressions returns a comparision between two SQL expressions using operator
+// CompareExpressions returns a comparison between two SQL expressions using operator
 func CompareExpressions(operator CompOperator, columnLeft, columnRight string) string {
 	return fmt.Sprintf("%s %s %s", columnLeft, operator, columnRight)
 }
@@ -264,7 +263,7 @@ func Null(field string) string {
 
 // INSERT/UPDATE helpers
 
-// SetToCurrentTimestamp crafts a postgres SQL assignement of the field to the current timestamp
+// SetToCurrentTimestamp crafts a postgres SQL assignment of the field to the current timestamp
 // with timezone.
 func SetToCurrentTimestamp(field string) string {
 	return fmt.Sprintf("%s = %s", field, CurrentTimestampPGFn)

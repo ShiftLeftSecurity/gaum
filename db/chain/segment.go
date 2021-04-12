@@ -15,7 +15,6 @@
 package chain
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/ShiftLeftSecurity/gaum/selectparse"
@@ -95,20 +94,6 @@ func (q *querySegmentAtom) clone() querySegmentAtom {
 		sqlBool:    q.sqlBool,
 		arguments:  arguments,
 	}
-}
-
-var nonFields = []struct {
-	re      *regexp.Regexp
-	replace []byte
-}{
-	{
-		re:      regexp.MustCompile(`distinct on \(.+\)`),
-		replace: []byte{},
-	},
-	{
-		re:      regexp.MustCompile(`[a-z|A-Z]*\([^\(\)]*\)`), // strips funcs
-		replace: []byte("placeholder"),
-	},
 }
 
 func (q *querySegmentAtom) fields() []string {

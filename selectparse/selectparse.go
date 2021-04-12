@@ -51,7 +51,7 @@ type SelectParser struct {
 }
 
 func (s *SelectParser) splitFields() {
-	var column = []string{}
+	var column []string
 	var depth = 0
 	var nextIgnore = false
 	for _, r := range s.Statement {
@@ -107,8 +107,6 @@ func (s *SelectParser) extractNames() error {
 	return nil
 }
 
-const as = " as "
-
 func extractAsIfAny(column string) string {
 	lowerColumn := strings.ToLower(column)
 	potentials := strings.Split(lowerColumn, " as ")
@@ -128,7 +126,7 @@ func extractAsIfAny(column string) string {
 	return lastSegment
 }
 
-var wordRe = regexp.MustCompile("([\\.0-9a-z_-]+)")
+var wordRe = regexp.MustCompile("([.0-9a-z_-]+)")
 
 func extractFromSingleWord(column string) string {
 	lowerColumn := strings.ToLower(column)
@@ -148,8 +146,8 @@ func extractFromKeywordsOrFunc(column string) string {
 		// Honestly, why would you do that?
 		lowerColumn = strings.TrimPrefix(strings.TrimSuffix(lowerColumn, ")"), "(")
 	}
-	buffer := []string{}
-	previousToken := []string{}
+	var buffer []string
+	var previousToken []string
 	previousWasSpace := false
 	depth := 0
 	for _, r := range lowerColumn {

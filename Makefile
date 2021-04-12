@@ -28,6 +28,10 @@ clean-docker:
 test-chain:
 	go test ./db/chain/.
 
+.PHONY: test-selectparse
+test-selectparse:
+	go test ./selectparse/.
+
 .PHONY: test-all
-test-all: test-chain test-postgres-pgx test-postgres-pq
+test-all: test-chain test-selectparse test-postgres-pgx test-postgres-pq
 
