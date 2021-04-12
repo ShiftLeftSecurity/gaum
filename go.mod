@@ -3,10 +3,8 @@ module github.com/ShiftLeftSecurity/gaum
 go 1.12
 
 require (
-	github.com/jackc/fake v0.0.0-20150926172116-812a484cc733 // indirect
 	github.com/jackc/pgconn v1.8.1
 	github.com/jackc/pgproto3/v2 v2.0.7 // indirect
-	github.com/jackc/pgx v3.5.0+incompatible
 	github.com/jackc/pgx/v4 v4.11.0
 	github.com/pkg/errors v0.8.1
 	github.com/satori/go.uuid v1.2.0
