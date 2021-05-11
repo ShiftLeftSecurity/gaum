@@ -22,11 +22,6 @@ import (
 
 var _ Logger = &GoTestingLogger{}
 
-// NewGoTestingLoggerr returns a GoTestingLogger wrapping the passed testing.T.Log()
-func NewGoTestingLoggerr(t *testing.T) *GoTestingLogger {
-	return &GoTestingLogger{t: t}
-}
-
 // GoTestingLogger wraps the builtin log.Logger into our own Logger
 type GoTestingLogger struct {
 	t *testing.T
@@ -35,7 +30,7 @@ type GoTestingLogger struct {
 // composeMessage makes a rudimentary pastiche of the passed structured data as displaying it
 // properly is beyond the built-in log.Logger capabilities
 func (g *GoTestingLogger) composeMessage(msg, level string, ctx ...interface{}) string {
-	messageComponents := []string{}
+	var messageComponents []string
 	var key interface{}
 	if ctx == nil {
 		ctx = []interface{}{}

@@ -65,7 +65,7 @@ func (ec *ExpressionChain) renderWhereRaw(dst *strings.Builder) []interface{} {
 	wheres := extract(ec, sqlWhere)
 	// Separate where statements that are not ANDed since they will need
 	// to go after others with AND.
-	whereOrs := []querySegmentAtom{}
+	var whereOrs []querySegmentAtom
 	if len(wheres) != 0 {
 		args := []interface{}{}
 		whereCount := 0
@@ -94,7 +94,7 @@ func (ec *ExpressionChain) renderHavingRaw(dst *strings.Builder) []interface{} {
 	havings := extract(ec, sqlHaving)
 	// Separate having statements that are not ANDed since they will need
 	// to go after others with AND.
-	havingOrs := []querySegmentAtom{}
+	var havingOrs []querySegmentAtom
 	if len(havings) != 0 {
 
 		args := []interface{}{}

@@ -14,7 +14,11 @@
 
 package chain
 
-import "github.com/pkg/errors"
+import (
+	"context"
+
+	"github.com/pkg/errors"
+)
 
 // Group allows to group a set of expressions and run them together
 // in a transaction.
@@ -36,7 +40,7 @@ func (cg *Group) Add(ec *ExpressionChain) {
 
 // Run runs all the chains in a group in a transaction, for this the db of the first query
 // will be used.
-func (cg *Group) Run() (execError error) {
+func (cg *Group) Run(ctx context.Context) (execError error) {
 	if len(cg.chains) == 0 {
 		return nil
 	}
@@ -46,24 +50,24 @@ func (cg *Group) Run() (execError error) {
 		}
 	}
 	db := cg.chains[0].db
-	txdb, err := db.BeginTransaction()
+	txdb, err := db.BeginTransaction(ctx)
 	if err != nil {
 		return errors.Wrap(err, "getting transaction to run chain group")
 	}
 	defer func() {
 		if execError != nil {
-			err := db.RollbackTransaction()
+			err := db.RollbackTransaction(ctx)
 			execError = errors.Wrapf(execError,
 				"there was a failure running the expression and also rolling back te transaction: %v",
 				err)
 		} else {
-			err := db.CommitTransaction()
+			err := db.CommitTransaction(ctx)
 			execError = errors.Wrap(err, "could not commit the transaction")
 		}
 	}()
 
 	if cg.set != "" {
-		err := txdb.Set(cg.set)
+		err := txdb.Set(ctx, cg.set)
 		if err != nil {
 			return errors.Wrapf(err, "setting %q to the transaction", cg.set)
 		}
@@ -74,7 +78,7 @@ func (cg *Group) Run() (execError error) {
 		if err != nil {
 			return errors.Wrap(err, "rendeding part of chain transaction")
 		}
-		err = txdb.Exec(query, args...)
+		err = txdb.Exec(ctx, query, args...)
 		if err != nil {
 			return errors.Wrap(err, "error executing query in group")
 		}

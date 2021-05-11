@@ -15,7 +15,7 @@
 package connection
 
 import (
-	"crypto/tls"
+	"context"
 	"net"
 	"strconv"
 	"strings"
@@ -46,18 +46,12 @@ var (
 // Information contains all required information to create a connection into a db.
 // Copied almost verbatim from https://godoc.org/github.com/jackc/pgx#ConnConfig
 type Information struct {
-	Host             string // host (e.g. localhost) or path to unix domain socket directory (e.g. /private/tmp)
-	Port             uint16
-	Database         string
-	User             string
-	Password         string
-	QueryExecTimeout *time.Duration //optionally set the maximum time a query can take to execute
-	ConnMaxLifetime  *time.Duration
+	Database        string
+	User            string
+	Password        string
+	ConnMaxLifetime *time.Duration
 
-	TLSConfig         *tls.Config // config for TLS connection -- nil disables TLS
-	UseFallbackTLS    bool        // Try FallbackTLSConfig if connecting with TLSConfig fails. Used for preferring TLS, but allowing unencrypted, or vice-versa
-	FallbackTLSConfig *tls.Config // config for fallback TLS connection (only used if UseFallBackTLS is true)-- nil disables TLS
-	CustomDial        func(network, addr string) (net.Conn, error)
+	CustomDial func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	// MaxConnPoolConns where applies will be used to determine the maximum amount of connections
 	// a pool can have.
@@ -70,7 +64,7 @@ type Information struct {
 // DatabaseHandler represents the boundary with a db.
 type DatabaseHandler interface {
 	// Open must be able to connect to the handled engine and return a db.
-	Open(*Information) (DB, error)
+	Open(context.Context, *Information) (DB, error)
 }
 
 // ResultFetchIter represents a closure that receives a receiver struct that will get the
@@ -86,47 +80,47 @@ type DB interface {
 	// Clone returns a stateful copy of this connection.
 	Clone() DB
 	// QueryIter returns closure allowing to load/fetch roads one by one.
-	QueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
+	QueryIter(ctx context.Context, statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
 	// EQueryIter is QueryIter but will use EscapeArgs.
-	EQueryIter(statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
+	EQueryIter(ctx context.Context, statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
 	// Query returns a closure that allows fetching of the results of the query.
-	Query(statement string, fields []string, args ...interface{}) (ResultFetch, error)
+	Query(ctx context.Context, statement string, fields []string, args ...interface{}) (ResultFetch, error)
 	// EQuery is Query but will use EscapeArgs.
-	EQuery(statement string, fields []string, args ...interface{}) (ResultFetch, error)
-	// QueryPrimitives returns a closure that allows fetching of the results of a query to a
+	EQuery(ctx context.Context, statement string, fields []string, args ...interface{}) (ResultFetch, error)
+	// QueryPrimitive returns a closure that allows fetching of the results of a query to a
 	// slice of primitives.
-	QueryPrimitive(statement string, field string, args ...interface{}) (ResultFetch, error)
+	QueryPrimitive(ctx context.Context, statement string, field string, args ...interface{}) (ResultFetch, error)
 	// EQueryPrimitive is QueryPrimitive but will use EscapeArgs
-	EQueryPrimitive(statement string, field string, args ...interface{}) (ResultFetch, error)
+	EQueryPrimitive(ctx context.Context, statement string, field string, args ...interface{}) (ResultFetch, error)
 	// Raw ins intended to be an all raw query that runs statement with args and tries
 	// to retrieve the results into fields without much magic whatsoever.
-	Raw(statement string, args []interface{}, fields ...interface{}) error
+	Raw(ctx context.Context, statement string, args []interface{}, fields ...interface{}) error
 	// ERaw is Raw but will use EscapeArgs
-	ERaw(statement string, args []interface{}, fields ...interface{}) error
+	ERaw(ctx context.Context, statement string, args []interface{}, fields ...interface{}) error
 	// Exec is intended for queries that do not yield results (data modifiers)
-	Exec(statement string, args ...interface{}) error
+	Exec(ctx context.Context, statement string, args ...interface{}) error
 	// ExecResult is intended for queries that modify data and respond with how many rows were affected.
-	ExecResult(statement string, args ...interface{}) (int64, error)
+	ExecResult(ctx context.Context, statement string, args ...interface{}) (int64, error)
 	// EExec is Exec but will use EscapeArgs.
-	EExec(statement string, args ...interface{}) error
+	EExec(ctx context.Context, statement string, args ...interface{}) error
 	// BeginTransaction returns a new DB that will use the transaction instead of the basic conn.
-	BeginTransaction() (DB, error)
+	BeginTransaction(ctx context.Context) (DB, error)
 	// CommitTransaction commits the transaction
-	CommitTransaction() error
+	CommitTransaction(ctx context.Context) error
 	// RollbackTransaction rolls back the transaction
-	RollbackTransaction() error
+	RollbackTransaction(ctx context.Context) error
 	// IsTransaction indicates if the DB is in the middle of a transaction.
 	IsTransaction() bool
 	// Set allows to change settings for the current transaction.
-	Set(set string) error
+	Set(ctx context.Context, set string) error
 	// BulkInsert Inserts in the most efficient way possible a lot of data.
-	BulkInsert(tableName string, columns []string, values [][]interface{}) (execError error)
+	BulkInsert(ctx context.Context, tableName string, columns []string, values [][]interface{}) (execError error)
 }
 
 // EscapeArgs return the query and args with the argument placeholder escaped.
 func EscapeArgs(query string, args []interface{}) (string, []interface{}, error) {
 	// TODO: make this a bit less ugly
-	// TODO: identify escaped questionmarks
+	// TODO: identify escaped question marks
 	queryWithArgs := &strings.Builder{}
 	argCounter := 1
 	for _, queryChar := range query {

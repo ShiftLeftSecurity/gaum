@@ -15,6 +15,8 @@
 package gaum
 
 import (
+	"context"
+
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
 	"github.com/ShiftLeftSecurity/gaum/db/postgres"
 	"github.com/pkg/errors"
@@ -25,10 +27,10 @@ var handlers = map[string]connection.DatabaseHandler{
 }
 
 // Open returns a DB connected to the passed db if possible.
-func Open(driver string, connInfo *connection.Information) (connection.DB, error) {
+func Open(ctx context.Context, driver string, connInfo *connection.Information) (connection.DB, error) {
 	handler, ok := handlers[driver]
 	if !ok {
 		return nil, errors.Errorf("do not know how to handle %s", driver)
 	}
-	return handler.Open(connInfo)
+	return handler.Open(ctx, connInfo)
 }

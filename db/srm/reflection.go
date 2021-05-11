@@ -76,27 +76,6 @@ func camelsToSnakes(s string) string {
 	return snake
 }
 
-func snakesToCamels(s string) string {
-	var c string
-	var snake bool
-	for i, v := range s {
-		if i == 0 {
-			c += strings.ToUpper(string(v))
-			continue
-		}
-		if v == '_' {
-			snake = true
-			continue
-		}
-		if snake {
-			c += strings.ToUpper(string(v))
-			continue
-		}
-		c += string(v)
-	}
-	return c
-}
-
 // MapFromPtrType returns the name of the passed type, a map of field name to field or error.
 func MapFromPtrType(aType interface{},
 	include []reflect.Kind,
@@ -148,7 +127,7 @@ func MapFromTypeOf(tod reflect.Type,
 
 	typeName := tod.Name()
 	fieldMap := make(map[string]reflect.StructField, tod.NumField())
-	embeddedFields := []reflect.StructField{}
+	var embeddedFields []reflect.StructField
 	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
 		field := tod.Field(fieldIndex)
 		if field.Anonymous {
@@ -174,7 +153,7 @@ func MapFromTypeOf(tod reflect.Type,
 // fields between structs perhaps the user should do some cleanup of the codebase.
 func unwrapEmbedded(fields map[string]reflect.StructField, anonfield *reflect.StructField) {
 	tod := anonfield.Type
-	embeddedFields := []*reflect.StructField{}
+	var embeddedFields []*reflect.StructField
 	var ok bool
 	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
 		field := tod.Field(fieldIndex)
@@ -196,18 +175,6 @@ func unwrapEmbedded(fields map[string]reflect.StructField, anonfield *reflect.St
 			unwrapEmbedded(fields, v)
 		}
 	}
-}
-
-// FieldNamesFromType returns a list of strings with the field names for sql extracted from a type
-func FieldNamesFromType(aType interface{}) []string {
-	tod := reflect.TypeOf(aType)
-	fields := []string{}
-	for fieldIndex := 0; fieldIndex < tod.NumField(); fieldIndex++ {
-		field := tod.Field(fieldIndex)
-		name := nameFromTagOrName(field)
-		fields = append(fields, name)
-	}
-	return fields
 }
 
 // FieldRecipientsFromType returns an array of pointer to attributes from the passed in instance.

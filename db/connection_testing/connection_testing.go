@@ -15,6 +15,7 @@ package connection_testing
 //    limitations under the License.
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"testing"
@@ -22,90 +23,91 @@ import (
 
 	"github.com/ShiftLeftSecurity/gaum/db/chain"
 	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	"github.com/jackc/pgx"
+	"github.com/jackc/pgconn"
+	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 )
 
 // Cleanup deletes everything created for a test in the db
 func Cleanup(t *testing.T, db connection.DB) {
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Delete().Table("justforfun").AndWhere("id > ?", 10)
-	err := query.Exec()
+	err := query.Exec(context.TODO())
 	if err != nil {
 		t.Logf("failed cleanup queries: %v", err)
 		t.FailNow()
 	}
 }
 
-func DoTestConnector_QueryIter(t *testing.T, newDB NewDB) {
-	testConnector_QueryIter(t, newDB)
+func DotestconnectorQueryiter(t *testing.T, newDB NewDB) {
+	testconnectorQueryiter(t, newDB)
 }
 
-func DoTestConnector_Query(t *testing.T, newDB NewDB) {
-	testConnector_Query(t, newDB)
+func DotestconnectorQuery(t *testing.T, newDB NewDB) {
+	testconnectorQuery(t, newDB)
 }
 
-func DoTestConnector_QueryReflection(t *testing.T, newDB NewDB) {
-	testConnector_QueryReflection(t, newDB)
+func DotestconnectorQueryreflection(t *testing.T, newDB NewDB) {
+	testconnectorQueryreflection(t, newDB)
 }
 
-func DoTestConnector_QueryStar(t *testing.T, newDB NewDB) {
-	testConnector_QueryStar(t, newDB)
+func DotestconnectorQuerystar(t *testing.T, newDB NewDB) {
+	testconnectorQuerystar(t, newDB)
 }
 
-func DoTestConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
-	testConnector_QueryReturningWithError(t, newDB)
+func DotestconnectorQueryreturningwitherror(t *testing.T, newDB NewDB) {
+	testconnectorQueryreturningwitherror(t, newDB)
 }
 
-func DoTestConnector_QueryNoRows(t *testing.T, newDB NewDB) {
-	testConnector_QueryNoRows(t, newDB)
+func DotestconnectorQuerynorows(t *testing.T, newDB NewDB) {
+	testconnectorQuerynorows(t, newDB)
 }
 
-func DoTestConnector_Distinct(t *testing.T, newDB NewDB) {
-	testConnector_Distinct(t, newDB)
+func DotestconnectorDistinct(t *testing.T, newDB NewDB) {
+	testconnectorDistinct(t, newDB)
 }
 
-func DoTestConnector_DistinctAs(t *testing.T, newDB NewDB) {
-	testConnector_DistinctAs(t, newDB)
+func DotestconnectorDistinctas(t *testing.T, newDB NewDB) {
+	testconnectorDistinctas(t, newDB)
 }
 
-func DoTestConnector_Raw(t *testing.T, newDB NewDB) {
-	testConnector_Raw(t, newDB)
+func DotestconnectorRaw(t *testing.T, newDB NewDB) {
+	testconnectorRaw(t, newDB)
 }
 
-func DoTestConnector_Insert(t *testing.T, newDB NewDB) {
-	testConnector_Insert(t, newDB)
+func DotestconnectorInsert(t *testing.T, newDB NewDB) {
+	testconnectorInsert(t, newDB)
 }
 
-func DoTestConnector_MultiInsert(t *testing.T, newDB NewDB) {
-	testConnector_MultiInsert(t, newDB)
+func DotestconnectorMultiinsert(t *testing.T, newDB NewDB) {
+	testconnectorMultiinsert(t, newDB)
 }
 
-func DoTestConnector_InsertConstraint(t *testing.T, newDB NewDB) {
-	testConnector_InsertConstraint(t, newDB)
+func DotestconnectorInsertconstraint(t *testing.T, newDB NewDB) {
+	testconnectorInsertconstraint(t, newDB)
 }
 
-func DoTestConnector_Transaction(t *testing.T, newDB NewDB) {
-	testConnector_Transaction(t, newDB)
+func DotestconnectorTransaction(t *testing.T, newDB NewDB) {
+	testconnectorTransaction(t, newDB)
 }
 
-func DoTestConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
-	testConnector_QueryPrimitives(t, newDB)
+func DotestconnectorQueryprimitives(t *testing.T, newDB NewDB) {
+	testconnectorQueryprimitives(t, newDB)
 }
 
-func DoTestConnector_Regression_Returning(t *testing.T, newDB NewDB) {
-	testConnector_Regression_Returning(t, newDB)
+func DotestconnectorRegressionReturning(t *testing.T, newDB NewDB) {
+	testconnectorRegressionReturning(t, newDB)
 }
 
-func DoTestConnector_ExecResult(t *testing.T, newDB NewDB) {
-	testConnector_ExecResult(t, newDB)
+func DotestconnectorExecresult(t *testing.T, newDB NewDB) {
+	testconnectorExecresult(t, newDB)
 }
 
 type NewDB func(t *testing.T) connection.DB
 
-func testConnector_QueryIter(t *testing.T, newDB NewDB) {
+func testconnectorQueryiter(t *testing.T, newDB NewDB) {
 	db := newDB(t)
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
 
 	// Debug print query
@@ -116,7 +118,7 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 	t.Logf("will perform query %q", q)
 	t.Logf("with arguments %#v", args)
 
-	iter, err := query.QueryIter()
+	iter, err := query.QueryIter(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -127,11 +129,10 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 	// Test one row
 	var oneRow row
 	next, closer, err := iter(&oneRow)
-	defer closer()
-
 	if err != nil {
 		t.Errorf("failed to iterate: %v", err)
 	}
+	defer closer()
 	if oneRow.Id != 1 {
 		t.Logf("row Id is %d expected 1", oneRow.Id)
 		t.FailNow()
@@ -147,9 +148,9 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 	closer()
 
 	// Test Multiple row Iterator
-	query = chain.NewExpressionChain(db)
+	query = chain.New(db)
 	query.Select("id, description").Table("justforfun").OrderBy(chain.Asc("id"))
-	iter, err = query.QueryIter()
+	iter, err = query.QueryIter(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -202,7 +203,7 @@ func testConnector_QueryIter(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
+func testconnectorQueryreflection(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
 	type row struct {
@@ -213,9 +214,9 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 	}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("*").Table("justforfun").OrderBy(chain.Asc("id"))
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -296,7 +297,7 @@ func testConnector_QueryReflection(t *testing.T, newDB NewDB) {
 	}
 }
 
-func testConnector_Query(t *testing.T, newDB NewDB) {
+func testconnectorQuery(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
 	type InnerRow struct {
@@ -308,9 +309,9 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 	}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("id, description").Table("justforfun").OrderBy(chain.Asc("id"))
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -362,7 +363,7 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 	// same with slice of ptr receiver
 	var multiRowPtr []*row
 
-	fetcher, err = query.Query()
+	fetcher, err = query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -392,7 +393,7 @@ func testConnector_Query(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_QueryStar(t *testing.T, newDB NewDB) {
+func testconnectorQuerystar(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 	type row struct {
 		Id          int    `gaum:"field_name:id"`
@@ -400,9 +401,9 @@ func testConnector_QueryStar(t *testing.T, newDB NewDB) {
 	}
 
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("*").Table("justforfun").OrderBy(chain.Asc("id"))
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -446,14 +447,14 @@ func testConnector_QueryStar(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
+func testconnectorQueryreturningwitherror(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 	type row struct {
 		Id          int
 		Description string
 	}
 
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Insert(map[string]interface{}{
 		"id":          1,
 		"description": "this id already exists",
@@ -461,39 +462,54 @@ func testConnector_QueryReturningWithError(t *testing.T, newDB NewDB) {
 		Table("justforfun").
 		Returning("*")
 
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
+
 	if err != nil {
-		t.Errorf("failed to query: %v", err)
+		// this might be PQ failing before we get to the fetch part
+		t.Log("Cause of error:")
+		t.Logf("err is : %T: %#v", err, err)
+		cause := errors.Cause(err)
+		if pgErr, ok := cause.(*pgconn.PgError); ok {
+			if pgErr.Severity != "ERROR" {
+				t.Errorf("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
+			}
+			if pgErr.Code != "23505" {
+				t.Errorf("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
+			}
+			return // the rest of the test will fail if this is the case
+		}
+		t.Fatalf("failed to query: %v", err)
 	}
 
 	var multiRow []row
 	err = fetcher(&multiRow)
 	if err == nil {
-		t.Error("expected to receive an error, instead got nil")
+		t.Fatalf("expected to receive an error, instead got nil")
 	}
-	if pgErr, ok := err.(pgx.PgError); ok {
+	if pgErr, ok := err.(*pgconn.PgError); ok {
 		if pgErr.Severity != "ERROR" {
-			t.Error("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
+			t.Fatalf("expected to receive a PgError with severity: 'Error', instead got: %s", pgErr.Severity)
 		}
 		if pgErr.Code != "23505" {
-			t.Error("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
+			t.Fatalf("expected to receive a PgError error Code: 23505, instead got: %s", pgErr.Code)
 		}
 	} else {
-		t.Error("expected to receive a PgError error, instead got %T, %+v", err, err)
+		t.Fatalf("expected to receive a PgError error, instead got %T, %+v", err, err)
 	}
+
 }
 
-func testConnector_QueryNoRows(t *testing.T, newDB NewDB) {
+func testconnectorQuerynorows(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 	type row struct {
 		Id          int
 		Description string
 	}
 
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("*").AndWhere("id = ?", 99999999).Table("justforfun")
 
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -501,23 +517,24 @@ func testConnector_QueryNoRows(t *testing.T, newDB NewDB) {
 	var multiRow []row
 	err = fetcher(&multiRow)
 	if err != nil {
-		t.Error("expected to receive no error, instead got %v", err)
+		t.Errorf("expected to receive no error, instead got %v", err)
 	}
 }
 
-func testConnector_Distinct(t *testing.T, newDB NewDB) {
+func testconnectorDistinct(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
-	ids := []struct {
+	type idRecipient struct {
 		ID          int    `gaum:"field_name:id"`
 		Description string `gaum:"field_name:description"`
-	}{}
+	}
+	var ids []idRecipient
 
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	prefix := chain.TablePrefix("justforfun")
 	query.Select(chain.Distinct(prefix("id")), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -541,19 +558,20 @@ func testConnector_Distinct(t *testing.T, newDB NewDB) {
 	}
 }
 
-func testConnector_DistinctAs(t *testing.T, newDB NewDB) {
+func testconnectorDistinctas(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
-	ids := []struct {
+	type idRecipientRenamed struct {
 		ID          int    `gaum:"field_name:renamed"`
 		Description string `gaum:"field_name:description"`
-	}{}
+	}
+	var ids []idRecipientRenamed
 
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	prefix := chain.TablePrefix("justforfun")
 	query.Select(chain.As(chain.Distinct(prefix("id")), "renamed"), prefix("description")).Table("justforfun").OrderBy(chain.Asc("id"))
-	fetcher, err := query.Query()
+	fetcher, err := query.Query(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -577,7 +595,7 @@ func testConnector_DistinctAs(t *testing.T, newDB NewDB) {
 	}
 }
 
-func testConnector_Raw(t *testing.T, newDB NewDB) {
+func testconnectorRaw(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
 	type row struct {
@@ -586,9 +604,9 @@ func testConnector_Raw(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("id, description").Table("justforfun").AndWhere("id = ?", 1)
-	err := query.Raw(&aRow.Id, &aRow.Description)
+	err := query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -602,16 +620,16 @@ func testConnector_Raw(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 
-	query = chain.NewExpressionChain(db)
+	query = chain.New(db)
 	query.Select("id, description").AndWhere("id = ?", 1)
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Errorf("should have failed because of invalid query")
 	}
 
 }
 
-func testConnector_Insert(t *testing.T, newDB NewDB) {
+func testconnectorInsert(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
 	type row struct {
@@ -620,11 +638,11 @@ func testConnector_Insert(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
-	err := query.Raw(&aRow.Id, &aRow.Description)
+	err := query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -632,16 +650,16 @@ func testConnector_Insert(t *testing.T, newDB NewDB) {
 	rand.Seed(time.Now().UnixNano())
 	tempID := rand.Intn(11000)
 
-	insertQuery := chain.NewExpressionChain(db)
+	insertQuery := chain.New(db)
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err != nil {
 		t.Logf("failed to insert: %v", err)
 		t.FailNow()
 	}
 
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -657,7 +675,7 @@ func testConnector_Insert(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
+func testconnectorMultiinsert(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
 	type row struct {
@@ -666,19 +684,19 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query1 := query.Clone()
 	tempDescription := uuid.NewV4().String()
 	tempDescription1 := uuid.NewV4().String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
-	err := query.Raw(&aRow.Id, &aRow.Description)
+	err := query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
 	}
 
 	query1.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription1)
-	err = query1.Raw(&aRow.Id, &aRow.Description)
+	err = query1.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our second description should fail, this record should not exist")
 		t.FailNow()
@@ -688,19 +706,19 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 	tempID := rand.Intn(11000)
 	tempID1 := tempID + 1
 
-	insertQuery := chain.NewExpressionChain(db)
+	insertQuery := chain.New(db)
 	_, err = insertQuery.InsertMulti(map[string][]interface{}{
-		"description": []interface{}{tempDescription, tempDescription1},
-		"id":          []interface{}{tempID, tempID1},
+		"description": {tempDescription, tempDescription1},
+		"id":          {tempID, tempID1},
 	})
 	insertQuery.Table("justforfun")
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err != nil {
 		t.Logf("failed to insert: %v", err)
 		t.FailNow()
 	}
 
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -714,7 +732,7 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 
-	err = query1.Raw(&aRow.Id, &aRow.Description)
+	err = query1.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -730,7 +748,7 @@ func testConnector_MultiInsert(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
+func testconnectorInsertconstraint(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 	type row struct {
 		Id          int
@@ -738,11 +756,11 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
-	err := query.Raw(&aRow.Id, &aRow.Description)
+	err := query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -751,16 +769,16 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	tempID := rand.Intn(11000)
 
 	// First insert, this is to have a colliding value
-	insertQuery := chain.NewExpressionChain(db)
+	insertQuery := chain.New(db)
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err != nil {
 		t.Logf("failed to insert to test constraint: %v", err)
 		t.FailNow()
 	}
 
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -780,7 +798,7 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	queryString, queryArgs, _ := insertQuery.Render()
 	t.Logf("conflicting insert query: %s", queryString)
 	t.Logf("conflicting insert args: %v", queryArgs)
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err == nil {
 		t.Log("an insert that breaks an uniqueness constraint should not be allowed, yet it was")
 		t.FailNow()
@@ -795,14 +813,14 @@ func testConnector_InsertConstraint(t *testing.T, newDB NewDB) {
 	queryString, queryArgs, _ = insertQuery.Render()
 	t.Logf("conflicting insert query: %s", queryString)
 	t.Logf("conflicting insert args: %v", queryArgs)
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err != nil {
 		t.Logf("the insertion conflict should have been ignored, yet it wasnt: %v", err)
 		t.FailNow()
 	}
 }
 
-func testConnector_Transaction(t *testing.T, newDB NewDB) {
+func testconnectorTransaction(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 	type row struct {
 		Id          int
@@ -810,11 +828,11 @@ func testConnector_Transaction(t *testing.T, newDB NewDB) {
 	}
 	aRow := row{}
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	tempDescriptionUUID := uuid.NewV4()
 	tempDescription := tempDescriptionUUID.String()
 	query.Select("id, description").Table("justforfun").AndWhere("description = ?", tempDescription)
-	err := query.Raw(&aRow.Id, &aRow.Description)
+	err := query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
@@ -822,43 +840,43 @@ func testConnector_Transaction(t *testing.T, newDB NewDB) {
 	rand.Seed(time.Now().UnixNano())
 	tempID := rand.Intn(11000)
 
-	transactionalDB, err := db.Clone().BeginTransaction()
+	transactionalDB, err := db.Clone().BeginTransaction(context.TODO())
 	if err != nil {
 		t.Logf("attempting to begin a transaction: %v", err)
 		t.FailNow()
 	}
 	// Let's try this with transactions
-	insertQuery := chain.NewExpressionChain(transactionalDB)
+	insertQuery := chain.New(transactionalDB)
 	insertQuery.Insert(map[string]interface{}{"id": tempID, "description": tempDescription}).
 		Table("justforfun")
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err != nil {
 		t.Logf("an insert in a transaction was attempted but failed: %v", err)
 		t.FailNow()
 	}
 
 	// Transaction was not committed so no result should be here
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
 	}
 
-	err = transactionalDB.RollbackTransaction()
+	err = transactionalDB.RollbackTransaction(context.TODO())
 	if err != nil {
 		t.Logf("attempting to rollback a transaction: %v", err)
 		t.FailNow()
 	}
 
 	// Transaction was rolled back so still no row
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
 	}
 
 	// a new transaction is required to try again.
-	transactionalDB, err = db.BeginTransaction()
+	transactionalDB, err = db.BeginTransaction(context.TODO())
 	if err != nil {
 		t.Logf("attempting to start a new transaction: %v", err)
 		t.FailNow()
@@ -866,28 +884,28 @@ func testConnector_Transaction(t *testing.T, newDB NewDB) {
 	insertQuery.NewDB(transactionalDB)
 
 	// lets insert with the idea of a commit now
-	err = insertQuery.Exec()
+	err = insertQuery.Exec(context.TODO())
 	if err != nil {
 		t.Logf("an insert in a transaction was attempted but failed: %v", err)
 		t.FailNow()
 	}
 
 	// Transaction is still not committed so it should fail.
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err == nil {
 		t.Log("querying for our description should fail, this record should not exist")
 		t.FailNow()
 	}
 
 	// Commit the transaction
-	err = transactionalDB.CommitTransaction()
+	err = transactionalDB.CommitTransaction(context.TODO())
 	if err != nil {
 		t.Logf("attempting to commit a transaction: %v", err)
 		t.FailNow()
 	}
 
 	// let's make sure commit worked.
-	err = query.Raw(&aRow.Id, &aRow.Description)
+	err = query.Raw(context.TODO(), &aRow.Id, &aRow.Description)
 	if err != nil {
 		t.Logf("transaction commit did not insert the object: %v", err)
 		t.FailNow()
@@ -902,14 +920,14 @@ func testConnector_Transaction(t *testing.T, newDB NewDB) {
 	}
 }
 
-func testConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
+func testconnectorQueryprimitives(t *testing.T, newDB NewDB) {
 
 	db := newDB(t)
 
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 	query.Select("id").Table("justforfun").OrderBy(chain.Asc("id"))
-	fetcher, err := query.QueryPrimitive()
+	fetcher, err := query.QueryPrimitive(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -945,18 +963,18 @@ func testConnector_QueryPrimitives(t *testing.T, newDB NewDB) {
 
 }
 
-func testConnector_Regression_Returning(t *testing.T, newDB NewDB) {
+func testconnectorRegressionReturning(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 	var oneID int64
 	var oneDescription string
 	// Test Multiple row Iterator
-	query := chain.NewExpressionChain(db)
+	query := chain.New(db)
 
 	err := query.Insert(map[string]interface{}{
 		"id":          11,
 		"description": "this should be in the db",
 	}).
-		Table("justforfun").Exec()
+		Table("justforfun").Exec(context.TODO())
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -973,7 +991,7 @@ func testConnector_Regression_Returning(t *testing.T, newDB NewDB) {
 		Returning("id, description")
 	render, _, _ := query.Render()
 	t.Log(render)
-	query.Raw(&oneID, &oneDescription)
+	err = query.Raw(context.TODO(), &oneID, &oneDescription)
 	if err != nil {
 		t.Errorf("failed to query: %v", err)
 	}
@@ -988,7 +1006,7 @@ func testConnector_Regression_Returning(t *testing.T, newDB NewDB) {
 	}
 }
 
-func testConnector_ExecResult(t *testing.T, newDB NewDB) {
+func testconnectorExecresult(t *testing.T, newDB NewDB) {
 	db := newDB(t)
 
 	rand.Seed(time.Now().UnixNano())
@@ -998,18 +1016,18 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	initialDesc1 := uuid.NewV4().String()
 	initialDesc2And3 := uuid.NewV4().String()
 
-	insertQuery := chain.NewExpressionChain(db)
+	insertQuery := chain.New(db)
 	_, err := insertQuery.InsertMulti(
 		map[string][]interface{}{
-			"id":          []interface{}{tempID1, tempID2, tempID3},
-			"description": []interface{}{initialDesc1, initialDesc2And3, initialDesc2And3},
+			"id":          {tempID1, tempID2, tempID3},
+			"description": {initialDesc1, initialDesc2And3, initialDesc2And3},
 		})
 	insertQuery.Table("justforfun")
 	if err != nil {
 		t.Logf("failed to generate insertQuery: %v", err)
 		t.FailNow()
 	}
-	rowsAffected, err := insertQuery.ExecResult()
+	rowsAffected, err := insertQuery.ExecResult(context.TODO())
 	if err != nil {
 		t.Logf("failed to insert: %v", err)
 		t.FailNow()
@@ -1023,12 +1041,12 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	newDesc2And3 := uuid.NewV4().String()
 
 	// First test 0 rows affected.
-	updateQuery := chain.NewExpressionChain(db)
+	updateQuery := chain.New(db)
 	updateQuery.UpdateMap(map[string]interface{}{"description": newDesc1}).
 		Table("justforfun").
 		AndWhere("id = ?", tempID1).
 		AndWhere("description = ?", "expect that this description does not exist")
-	rowsAffected, err = updateQuery.ExecResult()
+	rowsAffected, err = updateQuery.ExecResult(context.TODO())
 	if err != nil {
 		t.Logf("failed to update: %v", err)
 		t.FailNow()
@@ -1039,12 +1057,12 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 	}
 
 	// test 1 rows affected.
-	updateQuery = chain.NewExpressionChain(db)
+	updateQuery = chain.New(db)
 	updateQuery.UpdateMap(map[string]interface{}{"id": tempID1, "description": newDesc1}).
 		Table("justforfun").
 		AndWhere("id = ?", tempID1).
 		AndWhere("description = ?", initialDesc1)
-	rowsAffected, err = updateQuery.ExecResult()
+	rowsAffected, err = updateQuery.ExecResult(context.TODO())
 	if err != nil {
 		t.Logf("failed to update: %v", err)
 		t.FailNow()
@@ -1054,14 +1072,14 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 
-	//test multiple rows affected
-	updateQuery = chain.NewExpressionChain(db)
-	updateQuery = chain.NewExpressionChain(db)
+	// test multiple rows affected
+	updateQuery = chain.New(db)
+	updateQuery = chain.New(db)
 	updateQuery.UpdateMap(map[string]interface{}{"description": newDesc2And3}).
 		Table("justforfun").
 		AndWhere("id = ? OR id = ?", tempID2, tempID3).
 		AndWhere("description = ?", initialDesc2And3)
-	rowsAffected, err = updateQuery.ExecResult()
+	rowsAffected, err = updateQuery.ExecResult(context.TODO())
 	if err != nil {
 		t.Logf("failed to update: %v", err)
 		t.FailNow()
@@ -1071,9 +1089,9 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 		t.FailNow()
 	}
 
-	//test query that does not have rows affected
+	// test query that does not have rows affected
 	tempTable := "test_exec_result_temp_table"
-	rowsAffected, err = db.ExecResult(fmt.Sprintf("CREATE TABLE %s (id int)", tempTable))
+	rowsAffected, err = db.ExecResult(context.TODO(), fmt.Sprintf("CREATE TABLE %s (id int)", tempTable))
 	if err != nil {
 		t.Logf("create table failed: %v", err)
 		t.FailNow()
@@ -1082,7 +1100,7 @@ func testConnector_ExecResult(t *testing.T, newDB NewDB) {
 		t.Logf("expected 0 rows to be affected by create table, instead got: %d", rowsAffected)
 		t.FailNow()
 	}
-	rowsAffected, err = db.ExecResult(fmt.Sprintf("DROP TABLE %s", tempTable))
+	rowsAffected, err = db.ExecResult(context.TODO(), fmt.Sprintf("DROP TABLE %s", tempTable))
 	if err != nil {
 		t.Logf("drop table failed: %v", err)
 		t.FailNow()
