@@ -46,14 +46,12 @@ var (
 // Information contains all required information to create a connection into a db.
 // Copied almost verbatim from https://godoc.org/github.com/jackc/pgx#ConnConfig
 type Information struct {
-	Host             string // host (e.g. localhost) or path to unix domain socket directory (e.g. /private/tmp)
-	Port             uint16
-	Database         string
-	User             string
-	Password         string
-	ConnMaxLifetime  *time.Duration
+	Database        string
+	User            string
+	Password        string
+	ConnMaxLifetime *time.Duration
 
-	CustomDial        func(ctx context.Context, network, addr string) (net.Conn, error)
+	CustomDial func(ctx context.Context, network, addr string) (net.Conn, error)
 
 	// MaxConnPoolConns where applies will be used to determine the maximum amount of connections
 	// a pool can have.

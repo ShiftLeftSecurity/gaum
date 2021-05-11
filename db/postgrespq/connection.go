@@ -52,22 +52,25 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 
 	var conLogger logging.Logger
 	cc := config.ConnConfig
-	ccc := &cc.Config
 	if ci != nil {
 		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
 		if llevelErr != nil {
 			llevel = pgx.LogLevelError
 		}
-		ccc.Host = ci.Host
-		ccc.Port = ci.Port
-		ccc.Database = ci.Database
-		ccc.User = ci.User
-		ccc.Password = ci.Password
+		if ci.Database != "" {
+			cc.Database = ci.Database
+		}
+		if ci.User != "" {
+			cc.User = ci.User
+		}
+		if ci.Password != "" {
+			cc.Password = ci.Password
+		}
 		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
 		conLogger = ci.Logger
 		cc.LogLevel = llevel
 		if ci.CustomDial != nil {
-			ccc.DialFunc = ci.CustomDial
+			cc.DialFunc = ci.CustomDial
 		}
 		if ci.ConnMaxLifetime != nil {
 			config.MaxConnLifetime = *ci.ConnMaxLifetime
@@ -89,16 +92,16 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 		conn.SetConnMaxLifetime(*ci.ConnMaxLifetime)
 	}
 	return &DB{
-		conn:        conn,
-		logger:      conLogger,
+		conn:   conn,
+		logger: conLogger,
 	}, nil
 }
 
 // DB wraps pgx.Conn into a struct that implements connection.DB
 type DB struct {
-	conn        *sql.DB
-	tx          *sql.Tx
-	logger      logging.Logger
+	conn   *sql.DB
+	tx     *sql.Tx
+	logger logging.Logger
 }
 
 // Clone returns a copy of DB with the same underlying Connection
@@ -418,7 +421,7 @@ func (d *DB) exec(ctx context.Context, statement string, args ...interface{}) (s
 	} else if d.conn != nil {
 		connTag, err = d.conn.ExecContext(ctx, statement, args...)
 	} else {
-			return nil, gaumErrors.NoDB
+		return nil, gaumErrors.NoDB
 	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "querying database, obtained %v", connTag)
@@ -473,7 +476,7 @@ func (d *DB) Set(ctx context.Context, set string) error {
 		return gaumErrors.NoTX
 	}
 	// TODO check if this will work in the `SET LOCAL $1` arg format
-	cTag, err := d.tx.ExecContext(ctx, "SET LOCAL " + set)
+	cTag, err := d.tx.ExecContext(ctx, "SET LOCAL "+set)
 	if err != nil {
 		return errors.Wrapf(err, "trying to set local, returned: %s", cTag)
 	}
