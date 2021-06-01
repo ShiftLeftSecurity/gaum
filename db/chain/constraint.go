@@ -109,7 +109,7 @@ func (o *OnUpdate) Set(args ...interface{}) *OnUpdate {
 }
 
 // SetSQL Sets a field to a value that needs no escaping, it is assumed to be SQL valid (an
-// expression or column)
+// expression or column) and inserts parentheses around both keys and values
 func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 	if len(args)%2 != 0 {
 		panic("arguments to `DoUpdate().SetSQL(...)` must be even in length")
@@ -121,6 +121,25 @@ func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 		} else {
 			*o.operatorList = append(*o.operatorList, argList{
 				text: "(" + key + ") = (" + arg + ")",
+			})
+		}
+	}
+	return o
+}
+
+// SetSQLNoParens Sets a field to a value that needs no escaping, it is assumed to be SQL valid (an
+// expression or column) and doesn't insert any parentheses around either keys or values
+func (o *OnUpdate) SetSQLNoParens(args ...string) *OnUpdate {
+	if len(args)%2 != 0 {
+		panic("arguments to `DoUpdate().SetSQLNoParens(...)` must be even in length")
+	}
+	var key string
+	for index, arg := range args {
+		if index%2 == 0 {
+			key = arg
+		} else {
+			*o.operatorList = append(*o.operatorList, argList{
+				text: key + " = " + arg,
 			})
 		}
 	}
