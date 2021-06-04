@@ -76,14 +76,25 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 	args = otherArgs
 
 	// TODO: make this a bit less ugly
-	// TODO: identify escaped question marks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
 	queryWithArgs := &strings.Builder{}
 	argCounter := 1
 	argPositioner := 0
 	expandedArgs := []interface{}{}
-	for _, queryChar := range q {
+	skip := false
+	for i, queryChar := range q {
+		if skip {
+			skip = false
+			continue
+		}
+
+		if queryChar == '\\' && i < len(q)-1 && q[i+1] == '?' {
+			// Escaped '?'
+			queryWithArgs.WriteRune('?')
+			skip = true
+			continue
+		}
 		if queryChar == '?' {
 			arg := args[argPositioner]
 			switch reflect.TypeOf(arg).Kind() {
@@ -126,7 +137,6 @@ func MarksToPlaceholders(q string, args []interface{}) (string, []interface{}, e
 
 // PlaceholdersToPositional converts ? in a query into $<argument number> which postgres expects
 func PlaceholdersToPositional(q *strings.Builder, argCount int) (*strings.Builder, int, error) {
-	// TODO: identify escaped question marks
 	// TODO: use an actual parser <3
 	// TODO: structure query segments around SQL-Standard AST
 	newQ := &strings.Builder{}
@@ -136,8 +146,22 @@ func PlaceholdersToPositional(q *strings.Builder, argCount int) (*strings.Builde
 		newQ.Grow(renderedLength - newQ.Len())
 	}
 
+	queryString := q.String()
 	argCounter := 1
-	for _, queryChar := range q.String() {
+	skip := false
+	for i, queryChar := range queryString {
+		if skip {
+			skip = false
+			continue
+		}
+
+		if queryChar == '\\' && i < len(queryString)-1 && queryString[i+1] == '?' {
+			// Escaped '?'
+			newQ.WriteRune('?')
+			skip = true
+			continue
+		}
+
 		if queryChar == '?' {
 			newQ.WriteRune('$')
 			newQ.WriteString(strconv.Itoa(argCounter))
