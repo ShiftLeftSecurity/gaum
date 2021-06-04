@@ -16,7 +16,20 @@ func ExpandArgs(args []interface{}, querySegment string) (string, []interface{})
 	expandedArgs := []interface{}{}
 	newQuery := &strings.Builder{}
 	var argPosition = 0
-	for _, queryChar := range querySegment {
+	skip := false
+	for i, queryChar := range querySegment {
+		if skip {
+			skip = false
+			continue
+		}
+
+		if queryChar == '\\' && i < len(querySegment)-1 && querySegment[i+1] == '?' {
+			// Escaped '?'
+			newQuery.WriteRune('?')
+			skip = true
+			continue
+		}
+
 		if queryChar == '?' {
 			arg := args[argPosition]
 			if arg == nil {
