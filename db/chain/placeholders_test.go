@@ -62,41 +62,52 @@ func Test_digitSize(t *testing.T) {
 
 func TestPlaceholderEscaping(t *testing.T) {
 	tests := []struct {
-		q    string
-		want string
-		args []interface{}
+		q                string
+		wantPlaceholders string
+		wantExpanded     string
+		args             []interface{}
 	}{
 		{
-			q:    "? = 1",
-			want: "$1 = 1",
-			args: []interface{}{1},
+			q:                "? = 1",
+			wantPlaceholders: "$1 = 1",
+			wantExpanded:     "? = 1",
+			args:             []interface{}{1},
 		},
 		{
-			q:    "\\? = 1",
-			want: "? = 1",
-			args: []interface{}{},
+			q:                "\\? = 1",
+			wantPlaceholders: "? = 1",
+			wantExpanded:     "? = 1",
+			args:             []interface{}{},
 		},
 		{
-			q:    "? = ? AND \\? = 1",
-			want: "$1 = $2 AND ? = 1",
-			args: []interface{}{1, 1},
+			q:                "? = ? AND \\? = 1",
+			wantPlaceholders: "$1 = $2 AND ? = 1",
+			wantExpanded:     "? = ? AND ? = 1",
+			args:             []interface{}{1, 1},
 		},
 		{
-			q:    `'["a", "b"]'::jsonb \?& array['a', 'b']`,
-			want: `'["a", "b"]'::jsonb ?& array['a', 'b']`,
-			args: []interface{}{},
+			q:                `'["a", "b"]'::jsonb \?& array['a', 'b']`,
+			wantPlaceholders: `'["a", "b"]'::jsonb ?& array['a', 'b']`,
+			wantExpanded:     `'["a", "b"]'::jsonb ?& array['a', 'b']`,
+			args:             []interface{}{},
 		},
 		{
-			q:    `'["a", "b"]'::jsonb \?& array[?]`,
-			want: `'["a", "b"]'::jsonb ?& array[$1]`,
-			args: []interface{}{"a"},
+			q:                `'["a", "b"]'::jsonb \?& array[?]`,
+			wantPlaceholders: `'["a", "b"]'::jsonb ?& array[$1]`,
+			wantExpanded:     `'["a", "b"]'::jsonb ?& array[?]`,
+			args:             []interface{}{"a"},
 		},
 	}
 	for i, tt := range tests {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			result, _, _ := MarksToPlaceholders(tt.q, tt.args)
-			if result != tt.want {
-				t.Errorf("got %v, want %v", result, tt.want)
+			if result != tt.wantPlaceholders {
+				t.Errorf("got %v, want placeholders %v", result, tt.wantPlaceholders)
+			}
+
+			result, _ = ExpandArgs(tt.args, tt.q)
+			if result != tt.wantExpanded {
+				t.Errorf("got %v, want expanded %v", result, tt.wantExpanded)
 			}
 		})
 	}
