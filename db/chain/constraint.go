@@ -127,6 +127,21 @@ func (o *OnUpdate) SetSQL(args ...string) *OnUpdate {
 	return o
 }
 
+// SetSQLWithArgs sets a field to a value that itself needs no
+// escaping but may contain placeholders, to be filled with the
+// optional args.
+//
+// This is useful to build tings like `SET foo = foo || 'bar'` with
+// the appropriate escaping.
+func (o *OnUpdate) SetSQLWithArgs(column, sql string, args ...interface{}) *OnUpdate {
+	*o.operatorList = append(*o.operatorList, argList{
+		text: "(" + column + ") = (" + sql + ")",
+		data: args,
+	})
+
+	return o
+}
+
 // SetSQLNoParens Sets a field to a value that needs no escaping, it is assumed to be SQL valid (an
 // expression or column) and doesn't insert any parentheses around either keys or values
 func (o *OnUpdate) SetSQLNoParens(args ...string) *OnUpdate {

@@ -486,6 +486,20 @@ func TestExpressionChain_Render(t *testing.T) {
 			wantErr:  false,
 		},
 		{
+			name: "insert returning with where, conflict update with args",
+			chain: NewNoDB().Insert(map[string]interface{}{
+				"field1": "somethingelse",
+				"field2": 2,
+			}).
+				Table("atablename").OnConflict(func(c *OnConflict) {
+				c.OnColumn("field1").DoUpdate().SetSQLWithArgs("field1", "field1 || ?", " - hello")
+			}).
+				Returning("field2"),
+			want:     "INSERT INTO atablename (field1, field2) VALUES ($1, $2) ON CONFLICT ( field1 ) DO UPDATE SET (field1) = (field1 || $3) RETURNING field2",
+			wantArgs: []interface{}{"somethingelse", 2, " - hello"},
+			wantErr:  false,
+		},
+		{
 			name: "basic selection with CTEs",
 			chain: NewNoDB().Select("field1", "field2", "field3").
 				With("a_cte", NewNoDB().Select("*").From("some_table_in_cte")).
