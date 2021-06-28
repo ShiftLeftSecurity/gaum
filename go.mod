@@ -1,6 +1,6 @@
-module github.com/ShiftLeftSecurity/gaum
+module github.com/ShiftLeftSecurity/gaum/v2
 
-go 1.12
+go 1.15
 
 require (
 	github.com/cockroachdb/apd v1.1.0 // indirect
