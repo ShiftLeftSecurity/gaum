@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ShiftLeftSecurity/gaum/db/logging"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/logging"
 	"github.com/pkg/errors"
 )
 

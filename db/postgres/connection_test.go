@@ -20,9 +20,9 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	"github.com/ShiftLeftSecurity/gaum/db/connection_testing"
-	"github.com/ShiftLeftSecurity/gaum/db/logging"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection_testing"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/logging"
 )
 
 func newDB(t *testing.T) connection.DB {
