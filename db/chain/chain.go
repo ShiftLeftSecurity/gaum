@@ -18,7 +18,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
 	"github.com/pkg/errors"
 )
 

@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ShiftLeftSecurity/gaum/db/errors"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/errors"
 	"github.com/jackc/pgx/v4"
 )
 

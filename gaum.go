@@ -17,8 +17,8 @@ package gaum
 import (
 	"context"
 
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	"github.com/ShiftLeftSecurity/gaum/db/postgres"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/postgres"
 	"github.com/pkg/errors"
 )
 

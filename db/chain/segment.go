@@ -17,7 +17,7 @@ package chain
 import (
 	"strings"
 
-	"github.com/ShiftLeftSecurity/gaum/selectparse"
+	"github.com/ShiftLeftSecurity/gaum/v2/selectparse"
 )
 
 type sqlBool string

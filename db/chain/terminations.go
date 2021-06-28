@@ -17,8 +17,8 @@ package chain
 import (
 	"context"
 
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	gaumErrors "github.com/ShiftLeftSecurity/gaum/db/errors"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
+	gaumErrors "github.com/ShiftLeftSecurity/gaum/v2/db/errors"
 	"github.com/pkg/errors"
 )
 

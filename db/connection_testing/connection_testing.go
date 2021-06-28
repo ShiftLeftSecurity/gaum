@@ -21,8 +21,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ShiftLeftSecurity/gaum/db/chain"
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/chain"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
 	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"

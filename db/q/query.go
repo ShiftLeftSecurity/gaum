@@ -26,11 +26,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	c "github.com/ShiftLeftSecurity/gaum/db/chain"
-	"github.com/ShiftLeftSecurity/gaum/db/connection"
-	"github.com/ShiftLeftSecurity/gaum/db/logging"
-	"github.com/ShiftLeftSecurity/gaum/db/postgres"
-	"github.com/ShiftLeftSecurity/gaum/db/postgrespq"
+	c "github.com/ShiftLeftSecurity/gaum/v2/db/chain"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/logging"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/postgres"
+	"github.com/ShiftLeftSecurity/gaum/v2/db/postgrespq"
 )
 
 // Driver represent the possible db connection drivers.
