@@ -84,7 +84,7 @@ The [Information](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/connect
 A note about the `logger` object passed to `Open`, its an instance of [`logging.Logger`](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#Logger) which is basically an Interface for logging that I consider sane enough and that I in turn addapt to what [`pgx`](https://godoc.org/github.com/jackc/pgx) takes.
 
 For ease of use, as stated in this example [a wrapper](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#NewGoLogger) for the standard [go log](https://godoc.org/log#Logger) is provided.
-For testing purposes, [another wrapper](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#NewGoTestingLoggerr) is provided that wraps on the `*testing.T` object to facilitate testing info.
+For testing purposes, [another wrapper](https://godoc.org/github.com/ShiftLeftSecurity/gaum/db/logging#NewGoTestingLogger) is provided that wraps on the `*testing.T` object to facilitate testing info.
 
 ### Some of the items in DB
 
