@@ -69,6 +69,9 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
 		conLogger = ci.Logger
 		cc.LogLevel = llevel
+		if ci.MaxConnPoolConns > 0 {
+			config.MaxConns = int32(ci.MaxConnPoolConns)
+		}
 		if ci.CustomDial != nil {
 			cc.DialFunc = ci.CustomDial
 		}
