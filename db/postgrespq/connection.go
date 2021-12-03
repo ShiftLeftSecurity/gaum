@@ -39,9 +39,6 @@ type Connector struct {
 	ConnectionString string
 }
 
-// DefaultPGPoolMaxConn is an arbitrary number of connections that I decided was ok for the pool
-const DefaultPGPoolMaxConn = 10
-
 // Open opens a connection to postgres and returns it wrapped into a connection.DB
 func (c *Connector) Open(_ context.Context, ci *connection.Information) (connection.DB, error) {
 	// I'll be opinionated here and use the most efficient params.
@@ -51,38 +48,34 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 	}
 
 	var conLogger logging.Logger
-	cc := config.ConnConfig
+	effectiveConfig := config.ConnConfig
 	if ci != nil {
 		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
 		if llevelErr != nil {
 			llevel = pgx.LogLevelError
 		}
 		if ci.Database != "" {
-			cc.Database = ci.Database
+			effectiveConfig.Database = ci.Database
 		}
 		if ci.User != "" {
-			cc.User = ci.User
+			effectiveConfig.User = ci.User
 		}
 		if ci.Password != "" {
-			cc.Password = ci.Password
+			effectiveConfig.Password = ci.Password
 		}
-		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
+		effectiveConfig.Logger = logging.NewPgxLogAdapter(ci.Logger)
 		conLogger = ci.Logger
-		cc.LogLevel = llevel
+		effectiveConfig.LogLevel = llevel
 		if ci.CustomDial != nil {
-			cc.DialFunc = ci.CustomDial
-		}
-		if ci.ConnMaxLifetime != nil {
-			config.MaxConnLifetime = *ci.ConnMaxLifetime
+			effectiveConfig.DialFunc = ci.CustomDial
 		}
 	} else {
 		defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
-		cc.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
+		effectiveConfig.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
 		conLogger = logging.NewGoLogger(defaultLogger)
-		config.MaxConns = DefaultPGPoolMaxConn
 	}
 
-	connString := stdlib.RegisterConnConfig(config.ConnConfig)
+	connString := stdlib.RegisterConnConfig(effectiveConfig)
 
 	conn, err := sql.Open("pgx", connString)
 	if err != nil {
