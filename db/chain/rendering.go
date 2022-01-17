@@ -169,9 +169,14 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 		}
 		if ec.mainOperation.segment == sqlSelect {
 			query.WriteString("SELECT ")
-			query.WriteString(expression)
+			if ec.mainOperation.segment == sqlSelect {
+				query.WriteString(expression)
+			}
 		} else {
-			query.WriteString("DELETE ")
+			query.WriteString("DELETE")
+		}
+		if len(ec.mainOperation.arguments) != 0 {
+			query.WriteRune(' ')
 		}
 		// FROM
 		if ec.table == "" && ec.mainOperation.segment == sqlDelete {
@@ -219,7 +224,7 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 
 	// WHERE
 	if segmentsPresent(ec, sqlWhere) > 0 {
-		query.WriteString(" WHERE")
+		query.WriteString(" WHERE ")
 		args = append(args, ec.renderWhereRaw(query)...)
 	}
 
