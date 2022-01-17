@@ -49,9 +49,7 @@ func (ec *ExpressionChain) whereGroup(c *ExpressionChain, whereFunc baseSegmentF
 	dst.WriteRune('(')
 	whereArgs := c.renderWhereRaw(dst)
 	dst.WriteRune(')')
-	if len(whereArgs) > 0 {
-		whereFunc(dst.String(), whereArgs...)
-	}
+	whereFunc(dst.String(), whereArgs...)
 }
 
 // appendExpandedOp is the constructor of the most common chain segment.

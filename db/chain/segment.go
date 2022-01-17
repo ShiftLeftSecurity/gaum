@@ -117,8 +117,8 @@ func (q *querySegmentAtom) render(firstForSegment, lastForSegment bool,
 	if !firstForSegment {
 		dst.WriteRune(' ')
 		dst.WriteString(string(q.sqlBool))
+		dst.WriteRune(' ')
 	}
-	dst.WriteRune(' ')
 	dst.WriteString(q.expression)
 	return q.arguments
 }

@@ -99,7 +99,7 @@ func TestExpressionChain_Render(t *testing.T) {
 				OrWhere("field3 > ?", "pajarito").
 				OrHaving("haveable < ?", 1).
 				AndHaving("moreHaveable == ?", 3),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR field3 > $3 HAVING  moreHaveable == $4 OR haveable < $5",
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR field3 > $3 HAVING moreHaveable == $4 OR haveable < $5",
 			wantArgs: []interface{}{1, 2, "pajarito", 3, 1},
 			wantErr:  false,
 		},
@@ -110,7 +110,7 @@ func TestExpressionChain_Render(t *testing.T) {
 				AndWhere("field1 > ?", 1).
 				AndWhere("field2 = ?", 2).
 				OrWhereGroup(NewNoDB().AndWhere("inner = ?", 1).AndWhere("inner2 > ?", 2)),
-			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR ( inner = $3 AND inner2 > $4)",
+			want:     "SELECT field1, field2, field3 FROM convenient_table WHERE field1 > $1 AND field2 = $2 OR (inner = $3 AND inner2 > $4)",
 			wantArgs: []interface{}{1, 2, 1, 2},
 			wantErr:  false,
 		},
@@ -481,7 +481,7 @@ func TestExpressionChain_Render(t *testing.T) {
 					Where(NewNoDB().AndWhere(Equals("atablename.field1"), "something"))
 			}).
 				Returning("atablename.field2"),
-			want:     "INSERT INTO atablename (field1, field2) VALUES ($1, $2) ON CONFLICT ( field1 ) DO UPDATE SET (field2) = (atablename.field2 + 1) WHERE  atablename.field1 = $3 RETURNING atablename.field2",
+			want:     "INSERT INTO atablename (field1, field2) VALUES ($1, $2) ON CONFLICT ( field1 ) DO UPDATE SET (field2) = (atablename.field2 + 1) WHERE atablename.field1 = $3 RETURNING atablename.field2",
 			wantArgs: []interface{}{"somethingelse", 2, "something"},
 			wantErr:  false,
 		},
@@ -598,6 +598,17 @@ func TestExpressionChain_Render(t *testing.T) {
 			}(),
 			want:     "SELECT field1, field2, field3 FROM table1 LEFT JOIN table2 ON table1.field1 = table2.field1 INNER JOIN table1 as t1 ON table1.field2 = t1.field2 LEFT JOIN table3 ON table3.field3 = t1.field3 WHERE other_field = $1",
 			wantArgs: []interface{}{1},
+			wantErr:  false,
+		},
+		{
+			name: "Complex function with static arguments gets included",
+			chain: func() *ExpressionChain {
+				f := ComplexFunction("COALESCE").Static("true").Static("false")
+				ec := NewNoDB().Select("true").AndWhereGroup(NewNoDB().OrWhere(f.Fn()).OrWhere(f.Fn()))
+				return ec
+			}(),
+			want:     "SELECT true WHERE (COALESCE(true, false) OR COALESCE(true, false))",
+			wantArgs: []interface{}{},
 			wantErr:  false,
 		},
 	}

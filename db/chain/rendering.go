@@ -219,7 +219,7 @@ func (ec *ExpressionChain) render(raw bool, query *strings.Builder) ([]interface
 
 	// WHERE
 	if segmentsPresent(ec, sqlWhere) > 0 {
-		query.WriteString(" WHERE")
+		query.WriteString(" WHERE ")
 		args = append(args, ec.renderWhereRaw(query)...)
 	}
 
