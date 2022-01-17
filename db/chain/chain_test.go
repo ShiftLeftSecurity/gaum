@@ -162,7 +162,7 @@ func TestExpressionChain_Render(t *testing.T) {
 				AndWhere("field2 = ?", 2).
 				AndWhere("field3 > ?", "pajarito").
 				Join("another_convenient_table", "pirulo = ?", "unpirulo"),
-			want:     "DELETE  FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
+			want:     "DELETE FROM convenient_table JOIN another_convenient_table ON pirulo = $1 WHERE field1 > $2 AND field2 = $3 AND field3 > $4",
 			wantArgs: []interface{}{"unpirulo", 1, 2, "pajarito"},
 			wantErr:  false,
 		},
@@ -178,9 +178,9 @@ func TestExpressionChain_Render(t *testing.T) {
 			name: "basic insert multi",
 			chain: func() *ExpressionChain {
 				cn, err := NewNoDB().InsertMulti(map[string][]interface{}{
-					"field1": []interface{}{"value1", "value1.1"},
-					"field2": []interface{}{2, 22},
-					"field3": []interface{}{"blah", "blah2"}})
+					"field1": {"value1", "value1.1"},
+					"field2": {2, 22},
+					"field3": {"blah", "blah2"}})
 				if err != nil {
 					t.Logf("insert multi failed: %v", err)
 					t.FailNow()
@@ -204,9 +204,9 @@ func TestExpressionChain_Render(t *testing.T) {
 			name: "insert multi with chan value",
 			chain: func() *ExpressionChain {
 				cn, err := NewNoDB().InsertMulti(map[string][]interface{}{
-					"field1": []interface{}{"value1", "value1.1"},
-					"field2": []interface{}{2, NewNoDB().Select("MAX(value)").From("table").AndWhere("arbitrary = ?", 222)},
-					"field3": []interface{}{"blah", "blah2"}})
+					"field1": {"value1", "value1.1"},
+					"field2": {2, NewNoDB().Select("MAX(value)").From("table").AndWhere("arbitrary = ?", 222)},
+					"field3": {"blah", "blah2"}})
 				if err != nil {
 					t.Logf("insert multi failed: %v", err)
 					t.FailNow()
