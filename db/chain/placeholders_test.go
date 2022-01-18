@@ -76,25 +76,25 @@ func TestPlaceholderEscaping(t *testing.T) {
 		{
 			q:                "\\? = 1",
 			wantPlaceholders: "? = 1",
-			wantExpanded:     "? = 1",
+			wantExpanded:     "\\? = 1",
 			args:             []interface{}{},
 		},
 		{
 			q:                "? = ? AND \\? = 1",
 			wantPlaceholders: "$1 = $2 AND ? = 1",
-			wantExpanded:     "? = ? AND ? = 1",
+			wantExpanded:     "? = ? AND \\? = 1",
 			args:             []interface{}{1, 1},
 		},
 		{
 			q:                `'["a", "b"]'::jsonb \?& array['a', 'b']`,
 			wantPlaceholders: `'["a", "b"]'::jsonb ?& array['a', 'b']`,
-			wantExpanded:     `'["a", "b"]'::jsonb ?& array['a', 'b']`,
+			wantExpanded:     `'["a", "b"]'::jsonb \?& array['a', 'b']`,
 			args:             []interface{}{},
 		},
 		{
 			q:                `'["a", "b"]'::jsonb \?& array[?]`,
 			wantPlaceholders: `'["a", "b"]'::jsonb ?& array[$1]`,
-			wantExpanded:     `'["a", "b"]'::jsonb ?& array[?]`,
+			wantExpanded:     `'["a", "b"]'::jsonb \?& array[?]`,
 			args:             []interface{}{"a"},
 		},
 	}

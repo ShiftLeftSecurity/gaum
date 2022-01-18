@@ -25,7 +25,7 @@ func ExpandArgs(args []interface{}, querySegment string) (string, []interface{})
 
 		if queryChar == '\\' && i < len(querySegment)-1 && querySegment[i+1] == '?' {
 			// Escaped '?'
-			newQuery.WriteRune('?')
+			newQuery.WriteString("\\?")
 			skip = true
 			continue
 		}
