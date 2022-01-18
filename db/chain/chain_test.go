@@ -611,6 +611,18 @@ func TestExpressionChain_Render(t *testing.T) {
 			wantArgs: []interface{}{},
 			wantErr:  false,
 		},
+		{
+			name: "Complex function with static arguments and ? operator gets included",
+			chain: func() *ExpressionChain {
+				f := ComplexFunction("COALESCE").Static("'{}'::jsonb \\? 'foo'").Parametric(42)
+				fn, fnArgs := f.Fn()
+				ec := NewNoDB().Select("true").AndWhereGroup(NewNoDB().OrWhere(fn, fnArgs...))
+				return ec
+			}(),
+			want:     "SELECT true WHERE (COALESCE('{}'::jsonb ? 'foo', $1))",
+			wantArgs: []interface{}{42},
+			wantErr:  false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
