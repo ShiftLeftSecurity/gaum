@@ -125,13 +125,13 @@ var _ DB = (*FlexibleTransaction)(nil)
 // it also takes care of some of the most repeated checks at the time of commit/rollback and tx checking.
 type FlexibleTransaction struct {
 	DB
-	rolled              bool
-	concurrencySafegard sync.Mutex
+	rolled               bool
+	concurrencySafeguard sync.Mutex
 }
 
 func (f *FlexibleTransaction) Cleanup(ctx context.Context) (bool, bool, error) {
-	f.concurrencySafegard.Lock()
-	defer f.concurrencySafegard.Unlock()
+	f.concurrencySafeguard.Lock()
+	defer f.concurrencySafeguard.Unlock()
 	if f.DB == nil {
 		return false, false, nil
 	}
@@ -197,8 +197,8 @@ func (f *FlexibleTransaction) CommitTransaction(ctx context.Context) error {
 
 // RollbackTransaction implements DB for FlexibleTransaction
 func (f *FlexibleTransaction) RollbackTransaction(ctx context.Context) error {
-	f.concurrencySafegard.Lock()
-	defer f.concurrencySafegard.Unlock()
+	f.concurrencySafeguard.Lock()
+	defer f.concurrencySafeguard.Unlock()
 	f.rolled = true
 	return nil
 }
