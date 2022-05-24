@@ -28,8 +28,8 @@ func NewExpressionChain(db connection.DB) *ExpressionChain {
 	return &ExpressionChain{db: db}
 }
 
-// NewNoDB creates an expression chain withouth the db, mostly with the purpose of making a more
-// abbreviated syntax for transient ExpresionChains such as CTE or subquery ones.
+// NewNoDB creates an expression chain without the db, mostly with the purpose of making a more
+// abbreviated syntax for transient ExpressionChains such as CTE or sub-query ones.
 func NewNoDB() *ExpressionChain {
 	return &ExpressionChain{}
 }
