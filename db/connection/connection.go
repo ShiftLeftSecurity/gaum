@@ -129,6 +129,13 @@ type FlexibleTransaction struct {
 	concurrencySafeguard sync.Mutex
 }
 
+// Cleanup is an implementation of TXFinishFunc for FlexibleTransaction, it handles an attempt to either Commit
+// or rollback a transaction depending on the perceived outcome: If someone invoked rollback on the FlexibleTransaction
+// we assume the process went wrong and will rollback all. This is intended as a way to mitigate the lack of different
+// abstractions for Transaction and Connection in the current version of gaum, retaining the ability to finalize the
+// transaction at the initiator level.
+// This does however allow some bad habits such as functions acting different depending on if they think they receive
+// a transaction or a connection instead of having two functions that force the former or later as arguments.
 func (f *FlexibleTransaction) Cleanup(ctx context.Context) (bool, bool, error) {
 	f.concurrencySafeguard.Lock()
 	defer f.concurrencySafeguard.Unlock()
