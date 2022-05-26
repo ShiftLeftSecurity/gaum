@@ -16,9 +16,11 @@ package connection
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ShiftLeftSecurity/gaum/v2/db/logging"
@@ -115,6 +117,97 @@ type DB interface {
 	Set(ctx context.Context, set string) error
 	// BulkInsert Inserts in the most efficient way possible a lot of data.
 	BulkInsert(ctx context.Context, tableName string, columns []string, values [][]interface{}) (execError error)
+}
+
+var _ DB = (*FlexibleTransaction)(nil)
+
+// FlexibleTransaction allows for a DB transaction to be passed through functions and avoid multiple commit/rollbacks
+// it also takes care of some of the most repeated checks at the time of commit/rollback and tx checking.
+type FlexibleTransaction struct {
+	DB
+	rolled               bool
+	concurrencySafeguard sync.Mutex
+}
+
+// Cleanup is an implementation of TXFinishFunc for FlexibleTransaction, it handles an attempt to either Commit
+// or rollback a transaction depending on the perceived outcome: If someone invoked rollback on the FlexibleTransaction
+// we assume the process went wrong and will rollback all. This is intended as a way to mitigate the lack of different
+// abstractions for Transaction and Connection in the current version of gaum, retaining the ability to finalize the
+// transaction at the initiator level.
+// This does however allow some bad habits such as functions acting different depending on if they think they receive
+// a transaction or a connection instead of having two functions that force the former or later as arguments.
+func (f *FlexibleTransaction) Cleanup(ctx context.Context) (bool, bool, error) {
+	f.concurrencySafeguard.Lock()
+	defer f.concurrencySafeguard.Unlock()
+	if f.DB == nil {
+		return false, false, nil
+	}
+	if f.rolled {
+		if err := f.DB.RollbackTransaction(ctx); err != nil {
+			return false, false, fmt.Errorf("rolling back transaction: %w", err)
+		}
+		return false, true, nil
+	}
+
+	if err := f.DB.CommitTransaction(ctx); err != nil {
+		return false, false, fmt.Errorf("committing transaction: %w", err)
+	}
+	return true, false, nil
+}
+
+// TXFinishFunc represents an all-encompassing function that either rolls or commits a tx based on the outcome.
+type TXFinishFunc func(ctx context.Context) (committed, rolled bool, err error)
+
+// BeginTransaction will wrap the passed DB into a transaction handler that supports it being used with less care
+// and prevents having to check if we are already in a tx and failures due to eager committers.
+func BeginTransaction(ctx context.Context, conn DB) (DB, TXFinishFunc, error) {
+	// this can happen so let's work around it
+	ft, isFT := conn.(*FlexibleTransaction)
+	if isFT {
+		return ft, func(ctx2 context.Context) (bool, bool, error) {
+			return false, false, nil
+		}, nil
+	}
+
+	// the underlying conn is a tx, let's be careful not to commit/rollback it
+	if conn.IsTransaction() {
+		return &FlexibleTransaction{
+				DB: conn,
+			},
+			func(ctx2 context.Context) (bool, bool, error) {
+				return false, false, nil
+			},
+			nil
+
+	}
+
+	tx, err := conn.BeginTransaction(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("beginning transaction: %w", err)
+	}
+
+	f := &FlexibleTransaction{
+		DB: tx,
+	}
+	return f, f.Cleanup, nil
+}
+
+// BeginTransaction implements DB for FlexibleTransaction
+func (f *FlexibleTransaction) BeginTransaction(ctx context.Context) (DB, error) {
+	return f, nil
+}
+
+// CommitTransaction implements DB for FlexibleTransaction
+func (f *FlexibleTransaction) CommitTransaction(ctx context.Context) error {
+	return nil
+}
+
+// RollbackTransaction implements DB for FlexibleTransaction
+func (f *FlexibleTransaction) RollbackTransaction(ctx context.Context) error {
+	f.concurrencySafeguard.Lock()
+	defer f.concurrencySafeguard.Unlock()
+	f.rolled = true
+	return nil
 }
 
 // EscapeArgs return the query and args with the argument placeholder escaped.
