@@ -3,6 +3,7 @@ module github.com/ShiftLeftSecurity/gaum/v2
 go 1.15
 
 require (
+	github.com/go-test/deep v1.0.8
 	github.com/jackc/pgconn v1.8.1
 	github.com/jackc/pgproto3/v2 v2.0.7 // indirect
 	github.com/jackc/pgx/v4 v4.11.0

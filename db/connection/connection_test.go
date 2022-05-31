@@ -3,6 +3,8 @@ package connection
 import (
 	"context"
 	"testing"
+
+	"github.com/go-test/deep"
 )
 
 type fakeConn struct {
@@ -186,5 +188,27 @@ func TestFlexibleTransactionRecursive(t *testing.T) {
 	if fc.rollback != 0 {
 		t.Logf("rollback was called %d times in the underlying conn but we expected 0", fc.rollback)
 		t.FailNow()
+	}
+}
+
+func TestEscapeArgsOK(t *testing.T) {
+	for in, out := range map[string]string{
+		"from ? where ?=?":     "from $1 where $2=$3",
+		"from ? where ? \\? ?": "from $1 where $2 ? $3",
+		`\\??\??`:              `\$1$2?$3`,
+	} {
+		t.Run("", func(t *testing.T) {
+			args := []interface{}{"hello", 1, 42.}
+			got, gotArgs, err := EscapeArgs(in, args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if diff := deep.Equal(args, gotArgs); diff != nil {
+				t.Fatal(err)
+			}
+			if got != out {
+				t.Errorf("expected %q, got %q", out, got)
+			}
+		})
 	}
 }
