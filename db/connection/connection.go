@@ -211,19 +211,33 @@ func (f *FlexibleTransaction) RollbackTransaction(ctx context.Context) error {
 }
 
 // EscapeArgs return the query and args with the argument placeholder escaped.
+//
+// The argument placeholder is `?`. If you need an actual `?` in the output, you
+// can input `\?`.If you need an actual `\` in the output, input `\\`.
 func EscapeArgs(query string, args []interface{}) (string, []interface{}, error) {
 	// TODO: make this a bit less ugly
-	// TODO: identify escaped question marks
 	queryWithArgs := &strings.Builder{}
 	argCounter := 1
+	escaped := false
 	for _, queryChar := range query {
-		if queryChar == '?' {
-			queryWithArgs.WriteRune('$')
-			queryWithArgs.WriteString(strconv.Itoa(argCounter))
-			argCounter++
-		} else {
+		if escaped {
 			queryWithArgs.WriteRune(queryChar)
+			escaped = false
+		} else {
+			switch queryChar {
+			case '\\':
+				escaped = true
+			case '?':
+				queryWithArgs.WriteRune('$')
+				queryWithArgs.WriteString(strconv.Itoa(argCounter))
+				argCounter++
+			default:
+				queryWithArgs.WriteRune(queryChar)
+			}
 		}
+	}
+	if escaped {
+		return "", nil, errors.New("the query ends with an escape")
 	}
 	if len(args) != argCounter-1 {
 		return "", nil, errors.Errorf("the query has %d args but %d were passed: \n %q \n %#v",
