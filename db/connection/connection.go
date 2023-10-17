@@ -81,6 +81,8 @@ type ResultFetch func(interface{}) error
 type DB interface {
 	// Clone returns a stateful copy of this connection.
 	Clone() DB
+	// Close does so for all the underlying connections and returns an error if the driver provides one.
+	Close() error
 	// QueryIter returns closure allowing to load/fetch roads one by one.
 	QueryIter(ctx context.Context, statement string, fields []string, args ...interface{}) (ResultFetchIter, error)
 	// EQueryIter is QueryIter but will use EscapeArgs.
