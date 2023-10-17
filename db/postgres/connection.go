@@ -111,6 +111,12 @@ func (d *DB) Clone() connection.DB {
 	}
 }
 
+// Close closes the underlying connection, beware, this makes the DB useless.
+func (d *DB) Close() error {
+	d.conn.Close()
+	return nil
+}
+
 // EQueryIter Calls EscapeArgs before invoking QueryIter
 func (d *DB) EQueryIter(ctx context.Context, statement string, fields []string, args ...interface{}) (connection.ResultFetchIter, error) {
 	s, a, err := connection.EscapeArgs(statement, args)
