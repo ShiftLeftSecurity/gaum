@@ -491,6 +491,10 @@ func (cfs *CompositeTextScanner) Next() bool {
 				} else {
 					break
 				}
+			} else if ch == '\\' {
+				cfs.rp++
+				cfs.fieldBytes = append(cfs.fieldBytes, cfs.src[cfs.rp])
+				cfs.rp++
 			} else {
 				cfs.fieldBytes = append(cfs.fieldBytes, ch)
 				cfs.rp++
@@ -594,12 +598,10 @@ func (b *CompositeBinaryBuilder) Finish() ([]byte, error) {
 }
 
 type CompositeTextBuilder struct {
-	ci         *ConnInfo
-	buf        []byte
-	startIdx   int
-	fieldCount uint32
-	err        error
-	fieldBuf   [32]byte
+	ci       *ConnInfo
+	buf      []byte
+	err      error
+	fieldBuf [32]byte
 }
 
 func NewCompositeTextBuilder(ci *ConnInfo, buf []byte) *CompositeTextBuilder {
