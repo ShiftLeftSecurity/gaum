@@ -25,9 +25,9 @@ import (
 	gaumErrors "github.com/ShiftLeftSecurity/gaum/v2/db/errors"
 	"github.com/ShiftLeftSecurity/gaum/v2/db/logging"
 	"github.com/ShiftLeftSecurity/gaum/v2/db/srm"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 )
 
@@ -50,9 +50,9 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 	var conLogger logging.Logger
 	effectiveConfig := config.ConnConfig
 	if ci != nil {
-		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
+		llevel, llevelErr := tracelog.LogLevelFromString(string(ci.LogLevel))
 		if llevelErr != nil {
-			llevel = pgx.LogLevelError
+			llevel = tracelog.LogLevelError
 		}
 		if ci.Database != "" {
 			effectiveConfig.Database = ci.Database
@@ -63,16 +63,22 @@ func (c *Connector) Open(_ context.Context, ci *connection.Information) (connect
 		if ci.Password != "" {
 			effectiveConfig.Password = ci.Password
 		}
-		effectiveConfig.Logger = logging.NewPgxLogAdapter(ci.Logger)
+		effectiveConfig.Tracer = &tracelog.TraceLog{
+			Logger:   logging.NewPgxLogAdapter(ci.Logger),
+			LogLevel: llevel,
+		}
 		conLogger = ci.Logger
-		effectiveConfig.LogLevel = llevel
 		if ci.CustomDial != nil {
 			effectiveConfig.DialFunc = ci.CustomDial
 		}
 	} else {
 		defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
-		effectiveConfig.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
-		conLogger = logging.NewGoLogger(defaultLogger)
+		goLogger := logging.NewGoLogger(defaultLogger)
+		effectiveConfig.Tracer = &tracelog.TraceLog{
+			Logger:   logging.NewPgxLogAdapter(goLogger),
+			LogLevel: tracelog.LogLevelError,
+		}
+		conLogger = goLogger
 	}
 
 	connString := stdlib.RegisterConnConfig(effectiveConfig)

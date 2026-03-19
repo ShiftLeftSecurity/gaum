@@ -23,7 +23,7 @@ import (
 
 	"github.com/ShiftLeftSecurity/gaum/v2/db/chain"
 	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
-	"github.com/jackc/pgconn"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/pkg/errors"
 	uuid "github.com/satori/go.uuid"
 )

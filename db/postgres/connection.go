@@ -25,9 +25,10 @@ import (
 	gaumErrors "github.com/ShiftLeftSecurity/gaum/v2/db/errors"
 	"github.com/ShiftLeftSecurity/gaum/v2/db/logging"
 	"github.com/ShiftLeftSecurity/gaum/v2/db/srm"
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/tracelog"
 	"github.com/pkg/errors"
 )
 
@@ -53,9 +54,9 @@ func (c *Connector) Open(ctx context.Context, ci *connection.Information) (conne
 	var conLogger logging.Logger
 	cc := config.ConnConfig
 	if ci != nil {
-		llevel, llevelErr := pgx.LogLevelFromString(string(ci.LogLevel))
+		llevel, llevelErr := tracelog.LogLevelFromString(string(ci.LogLevel))
 		if llevelErr != nil {
-			llevel = pgx.LogLevelError
+			llevel = tracelog.LogLevelError
 		}
 		if ci.Database != "" {
 			cc.Database = ci.Database
@@ -66,9 +67,11 @@ func (c *Connector) Open(ctx context.Context, ci *connection.Information) (conne
 		if ci.Password != "" {
 			cc.Password = ci.Password
 		}
-		cc.Logger = logging.NewPgxLogAdapter(ci.Logger)
+		cc.Tracer = &tracelog.TraceLog{
+			Logger:   logging.NewPgxLogAdapter(ci.Logger),
+			LogLevel: llevel,
+		}
 		conLogger = ci.Logger
-		cc.LogLevel = llevel
 		if ci.MaxConnPoolConns > 0 {
 			config.MaxConns = int32(ci.MaxConnPoolConns)
 		}
@@ -80,12 +83,16 @@ func (c *Connector) Open(ctx context.Context, ci *connection.Information) (conne
 		}
 	} else {
 		defaultLogger := log.New(os.Stdout, "logger: ", log.Lshortfile)
-		cc.Logger = logging.NewPgxLogAdapter(logging.NewGoLogger(defaultLogger))
-		conLogger = logging.NewGoLogger(defaultLogger)
+		goLogger := logging.NewGoLogger(defaultLogger)
+		cc.Tracer = &tracelog.TraceLog{
+			Logger:   logging.NewPgxLogAdapter(goLogger),
+			LogLevel: tracelog.LogLevelError,
+		}
+		conLogger = goLogger
 		config.MaxConns = DefaultPGPoolMaxConn
 	}
 
-	conn, err := pgxpool.ConnectConfig(ctx, config)
+	conn, err := pgxpool.NewWithConfig(ctx, config)
 	if err != nil {
 		return nil, errors.Wrap(err, "connecting to postgres database")
 	}
@@ -163,7 +170,7 @@ func (d *DB) QueryIter(ctx context.Context, statement string, fields []string, a
 		sqlQueryfields := rows.FieldDescriptions()
 		fields = make([]string, len(sqlQueryfields), len(sqlQueryfields))
 		for i, v := range sqlQueryfields {
-			fields[i] = string(v.Name)
+			fields[i] = v.Name
 		}
 	}
 	return func(destination interface{}) (bool, func(), error) {
@@ -308,7 +315,7 @@ func (d *DB) Query(ctx context.Context, statement string, fields []string, args 
 			sqlQueryfields := rows.FieldDescriptions()
 			fields = make([]string, len(sqlQueryfields), len(sqlQueryfields))
 			for i, v := range sqlQueryfields {
-				fields[i] = string(v.Name)
+				fields[i] = v.Name
 			}
 		}
 
