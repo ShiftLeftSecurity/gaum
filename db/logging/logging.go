@@ -17,7 +17,7 @@ package logging
 import (
 	"context"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5/tracelog"
 )
 
 // Logger provides a seemingly sane logging interface.
@@ -29,35 +29,35 @@ type Logger interface {
 	Crit(msg string, ctx ...interface{})
 }
 
-var _ pgx.Logger = &PgxLogAdapter{}
+var _ tracelog.Logger = &PgxLogAdapter{}
 
 // NewPgxLogAdapter returns a PgxLogAdapter wrapping the passed Logger.
 func NewPgxLogAdapter(l Logger) *PgxLogAdapter {
 	return &PgxLogAdapter{logger: l}
 }
 
-// PgxLogAdapter wraps anything that satisfies Logger into pgx.Logger
+// PgxLogAdapter wraps anything that satisfies Logger into tracelog.Logger
 type PgxLogAdapter struct {
 	logger Logger
 }
 
-// Log Satisfies pgx.Logger
-func (l *PgxLogAdapter) Log(_ context.Context, level pgx.LogLevel, msg string, data map[string]interface{}) {
+// Log Satisfies tracelog.Logger
+func (l *PgxLogAdapter) Log(_ context.Context, level tracelog.LogLevel, msg string, data map[string]interface{}) {
 	logArgs := make([]interface{}, 0, len(data))
 	for k, v := range data {
 		logArgs = append(logArgs, k, v)
 	}
 
 	switch level {
-	case pgx.LogLevelTrace:
+	case tracelog.LogLevelTrace:
 		l.logger.Debug(msg, append(logArgs, "PGX_LOG_LEVEL", level)...)
-	case pgx.LogLevelDebug:
+	case tracelog.LogLevelDebug:
 		l.logger.Debug(msg, logArgs...)
-	case pgx.LogLevelInfo:
+	case tracelog.LogLevelInfo:
 		l.logger.Info(msg, logArgs...)
-	case pgx.LogLevelWarn:
+	case tracelog.LogLevelWarn:
 		l.logger.Warn(msg, logArgs...)
-	case pgx.LogLevelError:
+	case tracelog.LogLevelError:
 		l.logger.Error(msg, logArgs...)
 	default:
 		l.logger.Error(msg, append(logArgs, "INVALID_PGX_LOG_LEVEL", level)...)

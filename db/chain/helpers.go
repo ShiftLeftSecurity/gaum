@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/ShiftLeftSecurity/gaum/v2/db/errors"
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
 const (
