@@ -123,6 +123,87 @@ func TestNullScanner_TimeNonUTCUnchanged(t *testing.T) {
 	}
 }
 
+// TestNullScanner_PtrJsonRawMessage tests the **T branch (lines 236–249):
+// when the struct field is *json.RawMessage (nullable JSONB), fieldPtr is
+// **json.RawMessage and nullScanner must allocate a fresh json.RawMessage and
+// set the pointer to it.
+func TestNullScanner_PtrJsonRawMessage(t *testing.T) {
+	tests := []struct {
+		name string
+		src  interface{}
+		want *json.RawMessage
+	}{
+		{
+			name: "string source (pgx v5 JSONB)",
+			src:  `{"key":"value"}`,
+			want: func() *json.RawMessage { v := json.RawMessage(`{"key":"value"}`); return &v }(),
+		},
+		{
+			name: "[]byte source",
+			src:  []byte(`{"arr":[1,2,3]}`),
+			want: func() *json.RawMessage { v := json.RawMessage(`{"arr":[1,2,3]}`); return &v }(),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var dest *json.RawMessage
+			ns := &nullScanner{fieldPtr: &dest}
+			if err := ns.Scan(tt.src); err != nil {
+				t.Fatalf("Scan() error = %v", err)
+			}
+			if dest == nil {
+				t.Fatal("expected dest to be non-nil after Scan")
+			}
+			if !reflect.DeepEqual(*dest, *tt.want) {
+				t.Errorf("got %q, want %q", *dest, *tt.want)
+			}
+		})
+	}
+}
+
+// TestNullScanner_PtrJsonRawMessage_Nil confirms that a NULL DB value leaves a
+// *json.RawMessage field as nil (the nil early-return path fires before **T).
+func TestNullScanner_PtrJsonRawMessage_Nil(t *testing.T) {
+	var dest *json.RawMessage
+	ns := &nullScanner{fieldPtr: &dest}
+	if err := ns.Scan(nil); err != nil {
+		t.Fatalf("Scan(nil) error = %v", err)
+	}
+	if dest != nil {
+		t.Errorf("expected dest to remain nil, got %v", dest)
+	}
+}
+
+// TestNullScanner_PtrJsonRawMessage_UnsupportedSrc confirms that an unsupported
+// source type (e.g. int) returns an error for the **T path.
+func TestNullScanner_PtrJsonRawMessage_UnsupportedSrc(t *testing.T) {
+	var dest *json.RawMessage
+	ns := &nullScanner{fieldPtr: &dest}
+	if err := ns.Scan(42); err == nil {
+		t.Error("expected error for unsupported source type, got nil")
+	}
+}
+
+// TestNullScanner_PtrNamedByteSlice verifies the **T branch is not specific to
+// json.RawMessage — any named []byte type works, matching the reflection-based
+// implementation.
+func TestNullScanner_PtrNamedByteSlice(t *testing.T) {
+	type rawBytes []byte
+
+	var dest *rawBytes
+	ns := &nullScanner{fieldPtr: &dest}
+	if err := ns.Scan(`hello`); err != nil {
+		t.Fatalf("Scan() error = %v", err)
+	}
+	if dest == nil {
+		t.Fatal("expected dest to be non-nil")
+	}
+	if string(*dest) != "hello" {
+		t.Errorf("got %q, want %q", *dest, "hello")
+	}
+}
+
 // TestFieldRecipientsFromValueOf_JsonRawMessage confirms that named []byte fields
 // (e.g. json.RawMessage) are routed through nullScanner so that scanning works
 // end-to-end rather than failing via database/sql's convertAssign.
