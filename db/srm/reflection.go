@@ -216,6 +216,39 @@ func (ns *nullScanner) Scan(src interface{}) error {
 		return nil
 	}
 
+	// For []byte-kind destinations (e.g. json.RawMessage), handle string and []byte sources
+	// via reflect so that named []byte types work correctly.
+	rv := reflect.ValueOf(ns.fieldPtr)
+	if rv.Kind() == reflect.Ptr {
+		dv := rv.Elem()
+		// Handle *T where T's underlying kind is []byte (e.g. *json.RawMessage)
+		if dv.Kind() == reflect.Slice && dv.Type().Elem().Kind() == reflect.Uint8 {
+			switch s := src.(type) {
+			case string:
+				dv.Set(reflect.ValueOf([]byte(s)).Convert(dv.Type()))
+			case []byte:
+				dv.Set(reflect.ValueOf(s).Convert(dv.Type()))
+			default:
+				return errors.Errorf("cannot fit %T into %T", src, ns.fieldPtr)
+			}
+			return nil
+		}
+		// Handle **T where T's underlying kind is []byte
+		if dv.Kind() == reflect.Ptr && dv.Type().Elem().Kind() == reflect.Slice && dv.Type().Elem().Elem().Kind() == reflect.Uint8 {
+			elem := reflect.New(dv.Type().Elem())
+			switch s := src.(type) {
+			case string:
+				elem.Elem().Set(reflect.ValueOf([]byte(s)).Convert(dv.Type().Elem()))
+			case []byte:
+				elem.Elem().Set(reflect.ValueOf(s).Convert(dv.Type().Elem()))
+			default:
+				return errors.Errorf("cannot fit %T into %T", src, ns.fieldPtr)
+			}
+			dv.Set(elem)
+			return nil
+		}
+	}
+
 	switch s := src.(type) {
 	case string:
 		switch fieldV := ns.fieldPtr.(type) {
@@ -228,6 +261,11 @@ func (ns *nullScanner) Scan(src interface{}) error {
 		}
 		return nil
 	case time.Time:
+		// Normalize UTC location: pgx v5 may return a non-singleton time.Location
+		// with name "UTC" which causes reflect.DeepEqual to fail against time.UTC.
+		if s.Location().String() == "UTC" {
+			s = s.UTC()
+		}
 		switch fieldV := ns.fieldPtr.(type) {
 		case **time.Time:
 			*fieldV = &s
@@ -290,6 +328,18 @@ func FieldRecipientsFromValueOf(logger logging.Logger, sqlFields []string,
 			}
 			continue
 		}
+
+		// Named []byte types (e.g. json.RawMessage) need the nullScanner because
+		// database/sql's convertAssign only handles *[]byte, not named slice types,
+		// causing "unsupported Scan, storing driver.Value type <nil>" errors.
+		if fVal.Type.Kind() == reflect.Slice && fVal.Type.Elem().Kind() == reflect.Uint8 {
+			fieldRecipients[i] = &nullScanner{
+				fieldPtr: fieldPtrI,
+				logger:   logger,
+			}
+			continue
+		}
+
 		fieldRecipients[i] = vod.FieldByName(fVal.Name).Addr().Interface()
 	}
 	return fieldRecipients
