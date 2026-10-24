@@ -130,7 +130,7 @@ func (d *DB) EQueryIter(ctx context.Context, statement string, fields []string, 
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.QueryIter(ctx, s, fields, a)
+	return d.QueryIter(ctx, s, fields, a...)
 }
 
 // QueryIter returns an iterator that can be used to fetch results one by one, beware this holds
@@ -203,7 +203,7 @@ func (d *DB) EQueryPrimitive(ctx context.Context, statement string, field string
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.QueryPrimitive(ctx, s, field, a)
+	return d.QueryPrimitive(ctx, s, field, a...)
 }
 
 // QueryPrimitive returns a function that allows recovering the results of the query but to a slice
@@ -268,7 +268,7 @@ func (d *DB) EQuery(ctx context.Context, statement string, fields []string, args
 	if err != nil {
 		return nil, errors.Wrap(err, "escaping arguments")
 	}
-	return d.Query(ctx, s, fields, a)
+	return d.Query(ctx, s, fields, a...)
 }
 
 // Query returns a function that allows recovering the results of the query, beware the connection
