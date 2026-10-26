@@ -15,6 +15,7 @@
 package srm
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -213,6 +214,11 @@ type nullScanner struct {
 // a pointer)
 func (ns *nullScanner) Scan(src interface{}) error {
 	if src == nil {
+		// pgx v4 scanned SQL NULL jsonb into json.RawMessage as the JSON
+		// token null. pgx v5 leaves the slice nil, which omitempty then drops.
+		if rm, ok := ns.fieldPtr.(*json.RawMessage); ok && *rm == nil {
+			*rm = json.RawMessage("null")
+		}
 		return nil
 	}
 

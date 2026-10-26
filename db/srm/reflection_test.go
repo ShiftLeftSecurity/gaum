@@ -70,6 +70,19 @@ func TestNullScanner_JsonRawMessage_Nil(t *testing.T) {
 	}
 }
 
+// TestNullScanner_JsonRawMessage_NilDestBecomesJSONNull confirms that a nil
+// json.RawMessage becomes the JSON token null, matching pgx v4's NULL jsonb scan.
+func TestNullScanner_JsonRawMessage_NilDestBecomesJSONNull(t *testing.T) {
+	var dest json.RawMessage
+	ns := &nullScanner{fieldPtr: &dest}
+	if err := ns.Scan(nil); err != nil {
+		t.Fatalf("Scan(nil) error = %v", err)
+	}
+	if string(dest) != "null" {
+		t.Errorf("expected JSON null, got %q", dest)
+	}
+}
+
 // TestNullScanner_JsonRawMessage_UnsupportedSrc confirms that an unsupported
 // source type returns an error rather than silently succeeding.
 func TestNullScanner_JsonRawMessage_UnsupportedSrc(t *testing.T) {
