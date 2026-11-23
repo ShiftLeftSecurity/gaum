@@ -75,8 +75,3 @@ func (g *GoTestingLogger) Warn(msg string, ctx ...interface{}) {
 func (g *GoTestingLogger) Error(msg string, ctx ...interface{}) {
 	g.t.Log(g.composeMessage(msg, "ERROR", ctx...))
 }
-
-// Crit implements Logger
-func (g *GoTestingLogger) Crit(msg string, ctx ...interface{}) {
-	g.t.Log(g.composeMessage(msg, "CRITICAL", ctx...))
-}
