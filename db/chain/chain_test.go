@@ -15,8 +15,11 @@
 package chain
 
 import (
+	"context"
 	"reflect"
 	"testing"
+
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
 )
 
 func TestExpressionChain_Render(t *testing.T) {
@@ -637,6 +640,54 @@ func TestExpressionChain_Render(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.wantArgs) {
 				t.Errorf("ExpressionChain.Render() got1 %v, want %v", got1, tt.wantArgs)
+			}
+		})
+	}
+}
+
+type primitiveSpyDB struct {
+	connection.DB
+	calls int
+}
+
+func (s *primitiveSpyDB) QueryPrimitive(_ context.Context, _ string, _ string, _ ...interface{}) (connection.ResultFetch, error) {
+	s.calls++
+	return func(interface{}) error { return nil }, nil
+}
+
+func TestExpressionChain_QueryPrimitiveReturning(t *testing.T) {
+	tests := []struct {
+		name  string
+		chain func(connection.DB) *ExpressionChain
+	}{
+		{
+			name: "insert returning single expression",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("true AS x")
+			},
+		},
+		{
+			name: "insert returning single column",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("id")
+			},
+		},
+		{
+			name: "update returning single column",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Update("a = ?", 1).Table("t").Returning("id")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spy := &primitiveSpyDB{}
+			var got []int
+			if err := tt.chain(spy).FetchIntoPrimitive(context.TODO(), &got); err != nil {
+				t.Fatalf("FetchIntoPrimitive() error = %v", err)
+			}
+			if spy.calls != 1 {
+				t.Errorf("QueryPrimitive called %d times, want 1", spy.calls)
 			}
 		})
 	}
