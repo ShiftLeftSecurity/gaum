@@ -16,9 +16,11 @@ package chain
 
 import (
 	"context"
+	"strings"
 
 	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
 	gaumErrors "github.com/ShiftLeftSecurity/gaum/v2/db/errors"
+	"github.com/ShiftLeftSecurity/gaum/v2/selectparse"
 	"github.com/pkg/errors"
 )
 
@@ -70,9 +72,12 @@ func (ec *ExpressionChain) QueryPrimitive(ctx context.Context) (connection.Resul
 		return func(interface{}) error { return nil },
 			errors.Wrap(err, "rendering query to query")
 	}
-	// No fields means they could not be determined (ie. INSERT/UPDATE ... RETURNING), the
-	// database will report the actual columns and scanning fails if there is more than one.
 	fields := ec.mainOperation.fields()
+	if len(fields) == 0 {
+		fields = ec.returningFields()
+	}
+	// No fields means they could not be determined (ie. RETURNING *), the database will report
+	// the actual columns and scanning fails if there is more than one.
 	if len(fields) > 1 {
 		return func(interface{}) error { return nil },
 			errors.Errorf("querying for primitives can be done for 1 column only, got %d",
@@ -188,6 +193,23 @@ func (ec *ExpressionChain) Raw(ctx context.Context, fields ...interface{}) error
 // TODO Inspect stacklocation and try re-run queryies if arguments have similiar memory address to save serialization time
 
 // TODO Add pg Copy feature where possible to handle large inserts.
+
+// returningFields returns the column names of the RETURNING clause, if any, or nothing if they
+// can not be told from the expression.
+func (ec *ExpressionChain) returningFields() []string {
+	var fields []string
+	for _, segment := range ec.segments {
+		if segment.segment != sqlReturning {
+			continue
+		}
+		columns, err := selectparse.FieldsFromSelect(strings.TrimPrefix(segment.expression, "RETURNING "))
+		if err != nil {
+			return nil
+		}
+		fields = append(fields, columns...)
+	}
+	return fields
+}
 
 // queryable handles checking if the function returns any results
 func (ec *ExpressionChain) queryable() bool {
