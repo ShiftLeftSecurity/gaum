@@ -96,6 +96,10 @@ func TestConnector_QueryPrimitives(t *testing.T) {
 	connection_testing.DotestconnectorQueryprimitives(t, newDB)
 }
 
+func TestConnector_ReturningPrimitive(t *testing.T) {
+	connection_testing.DotestconnectorReturningPrimitive(t, newDB)
+}
+
 func TestConnector_RegressionReturning(t *testing.T) {
 	connection_testing.DotestconnectorRegressionReturning(t, newDB)
 }

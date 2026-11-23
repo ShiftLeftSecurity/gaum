@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
 	"time"
 
@@ -93,6 +94,10 @@ func DotestconnectorTransaction(t *testing.T, newDB NewDB) {
 
 func DotestconnectorQueryprimitives(t *testing.T, newDB NewDB) {
 	testconnectorQueryprimitives(t, newDB)
+}
+
+func DotestconnectorReturningPrimitive(t *testing.T, newDB NewDB) {
+	testconnectorReturningPrimitive(t, newDB)
 }
 
 func DotestconnectorRegressionReturning(t *testing.T, newDB NewDB) {
@@ -1108,5 +1113,125 @@ func testconnectorExecresult(t *testing.T, newDB NewDB) {
 	if rowsAffected != 0 {
 		t.Logf("expected 0 rows to be affected by drop table, instead got: %d", rowsAffected)
 		t.FailNow()
+	}
+}
+
+func testconnectorReturningPrimitive(t *testing.T, newDB NewDB) {
+	db := newDB(t)
+	ctx := context.TODO()
+
+	// Control: the struct based fetch already works with a single RETURNING column.
+	var asStruct []struct{ X bool }
+	err := chain.New(db).
+		Insert(map[string]interface{}{"id": 9001, "description": "returning struct"}).
+		Table("justforfun").
+		Returning("true AS x").
+		Fetch(ctx, &asStruct)
+	if err != nil {
+		t.Fatalf("fetching INSERT ... RETURNING into a struct slice: %v", err)
+	}
+	if len(asStruct) != 1 || !asStruct[0].X {
+		t.Fatalf("unexpected struct result: %#v", asStruct)
+	}
+
+	// INSERT ... RETURNING into a slice of primitives.
+	var asBool []bool
+	err = chain.New(db).
+		Insert(map[string]interface{}{"id": 9002, "description": "returning bool"}).
+		Table("justforfun").
+		Returning("true AS x").
+		FetchIntoPrimitive(ctx, &asBool)
+	if err != nil {
+		t.Fatalf("fetching INSERT ... RETURNING into a primitive slice: %v", err)
+	}
+	if len(asBool) != 1 || !asBool[0] {
+		t.Fatalf("unexpected bool result: %#v", asBool)
+	}
+
+	var asInt []int
+	err = chain.New(db).
+		Insert(map[string]interface{}{"id": 9003, "description": "returning id"}).
+		Table("justforfun").
+		Returning("id").
+		FetchIntoPrimitive(ctx, &asInt)
+	if err != nil {
+		t.Fatalf("fetching INSERT ... RETURNING id into a primitive slice: %v", err)
+	}
+	if len(asInt) != 1 || asInt[0] != 9003 {
+		t.Fatalf("unexpected int result: %#v", asInt)
+	}
+
+	// UPDATE ... RETURNING into a slice of primitives.
+	var asString []string
+	err = chain.New(db).
+		Update("description = ?", "returning updated").
+		Table("justforfun").
+		AndWhere("id = ?", 9003).
+		Returning("description").
+		FetchIntoPrimitive(ctx, &asString)
+	if err != nil {
+		t.Fatalf("fetching UPDATE ... RETURNING into a primitive slice: %v", err)
+	}
+	if len(asString) != 1 || asString[0] != "returning updated" {
+		t.Fatalf("unexpected string result: %#v", asString)
+	}
+
+	// More than one column can't go into a slice of primitives, this is caught before querying.
+	var tooMany []int
+	err = chain.New(db).
+		Insert(map[string]interface{}{"id": 9004, "description": "returning two"}).
+		Table("justforfun").
+		Returning("id, description").
+		FetchIntoPrimitive(ctx, &tooMany)
+	if err == nil {
+		t.Fatalf("expected an error fetching two columns into a primitive slice, got %#v", tooMany)
+	}
+
+	// The columns of RETURNING * are not known to gaum, so the query does run and it is the
+	// driver that has to refuse scanning several columns into a primitive.
+	var starTooMany []int
+	err = chain.New(db).
+		Insert(map[string]interface{}{"id": 9005, "description": "returning star"}).
+		Table("justforfun").
+		Returning("*").
+		FetchIntoPrimitive(ctx, &starTooMany)
+	if err == nil {
+		t.Fatalf("expected an error fetching RETURNING * of a multi column table into a primitive slice, got %#v", starTooMany)
+	}
+	var count []int
+	err = chain.New(db).
+		Select("count(*)").
+		Table("justforfun").
+		AndWhere("id = ?", 9005).
+		FetchIntoPrimitive(ctx, &count)
+	if err != nil {
+		t.Fatalf("checking the insert that ran for RETURNING *: %v", err)
+	}
+	if len(count) != 1 || count[0] != 1 {
+		t.Fatalf("the INSERT ... RETURNING * should have run, got count %#v", count)
+	}
+
+	// RETURNING * of a table with a single column is a valid primitive fetch.
+	singleTable := "justforfun_single_" + strings.ReplaceAll(uuid.NewV4().String(), "-", "")
+	err = db.Exec(ctx, "CREATE TABLE "+singleTable+" (id int)")
+	if err != nil {
+		t.Fatalf("creating single column table: %v", err)
+	}
+	defer func() {
+		if err := db.Exec(ctx, "DROP TABLE "+singleTable); err != nil {
+			t.Errorf("dropping single column table: %v", err)
+		}
+	}()
+	var starSingle []int
+	err = chain.New(db).
+		Insert(map[string]interface{}{"id": 9006}).
+		Table(singleTable).
+		Returning("*").
+		FetchIntoPrimitive(ctx, &starSingle)
+	if err != nil {
+		t.Fatalf("fetching INSERT ... RETURNING * of a single column table into a primitive slice: %v", err)
+	}
+	if len(starSingle) != 1 || starSingle[0] != 9006 {
+		t.Fatalf("unexpected RETURNING * result: %#v", starSingle)
 	}
 }

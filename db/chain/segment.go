@@ -107,7 +107,7 @@ func (q *querySegmentAtom) fields() []string {
 			return []string{}
 		}
 	}
-	// TODO make UPDATE and INSERT for completion's sake
+	// INSERT and UPDATE columns come from their RETURNING segment, see returningFields.
 	return fields
 }
 

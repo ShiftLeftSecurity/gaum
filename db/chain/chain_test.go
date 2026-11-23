@@ -15,8 +15,11 @@
 package chain
 
 import (
+	"context"
 	"reflect"
 	"testing"
+
+	"github.com/ShiftLeftSecurity/gaum/v2/db/connection"
 )
 
 func TestExpressionChain_Render(t *testing.T) {
@@ -637,6 +640,109 @@ func TestExpressionChain_Render(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got1, tt.wantArgs) {
 				t.Errorf("ExpressionChain.Render() got1 %v, want %v", got1, tt.wantArgs)
+			}
+		})
+	}
+}
+
+type primitiveSpyDB struct {
+	connection.DB
+	calls int
+	field string
+}
+
+func (s *primitiveSpyDB) QueryPrimitive(_ context.Context, _ string, field string, _ ...interface{}) (connection.ResultFetch, error) {
+	s.calls++
+	s.field = field
+	return func(interface{}) error { return nil }, nil
+}
+
+func TestExpressionChain_QueryPrimitiveReturning(t *testing.T) {
+	tests := []struct {
+		name      string
+		chain     func(connection.DB) *ExpressionChain
+		wantField string
+		wantErr   bool
+	}{
+		{
+			name: "insert returning single expression",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("true AS x")
+			},
+			wantField: "x",
+		},
+		{
+			name: "insert returning single column",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("id")
+			},
+			wantField: "id",
+		},
+		{
+			name: "insert multi returning single column",
+			chain: func(db connection.DB) *ExpressionChain {
+				c, err := New(db).InsertMulti(map[string][]interface{}{"id": {1, 2}})
+				if err != nil {
+					t.Fatal(err)
+				}
+				return c.Table("t").Returning("id")
+			},
+			wantField: "id",
+		},
+		{
+			name: "update returning single column",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Update("a = ?", 1).Table("t").Returning("id")
+			},
+			wantField: "id",
+		},
+		{
+			name: "returning star is left to the database",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("*")
+			},
+		},
+		{
+			name: "insert returning two columns in one argument",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("id, description")
+			},
+			wantErr: true,
+		},
+		{
+			name: "update returning two columns as arguments",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Update("a = ?", 1).Table("t").Returning("id", "description")
+			},
+			wantErr: true,
+		},
+		{
+			name: "returning a function call with commas is a single column",
+			chain: func(db connection.DB) *ExpressionChain {
+				return New(db).Insert(map[string]interface{}{"id": 1}).Table("t").Returning("coalesce(a, b) AS c")
+			},
+			wantField: "c",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spy := &primitiveSpyDB{}
+			var got []int
+			err := tt.chain(spy).FetchIntoPrimitive(context.TODO(), &got)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("FetchIntoPrimitive() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.wantErr {
+				if spy.calls != 0 {
+					t.Errorf("QueryPrimitive called %d times, want 0", spy.calls)
+				}
+				return
+			}
+			if spy.calls != 1 {
+				t.Errorf("QueryPrimitive called %d times, want 1", spy.calls)
+			}
+			if spy.field != tt.wantField {
+				t.Errorf("QueryPrimitive field = %q, want %q", spy.field, tt.wantField)
 			}
 		})
 	}
