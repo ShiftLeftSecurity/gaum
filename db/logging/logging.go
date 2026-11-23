@@ -26,7 +26,6 @@ type Logger interface {
 	Info(msg string, ctx ...interface{})
 	Warn(msg string, ctx ...interface{})
 	Error(msg string, ctx ...interface{})
-	Crit(msg string, ctx ...interface{})
 }
 
 var _ tracelog.Logger = &PgxLogAdapter{}
