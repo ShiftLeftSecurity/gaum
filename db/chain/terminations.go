@@ -70,13 +70,19 @@ func (ec *ExpressionChain) QueryPrimitive(ctx context.Context) (connection.Resul
 		return func(interface{}) error { return nil },
 			errors.Wrap(err, "rendering query to query")
 	}
+	// No fields means they could not be determined (ie. INSERT/UPDATE ... RETURNING), the
+	// database will report the actual columns and scanning fails if there is more than one.
 	fields := ec.mainOperation.fields()
-	if len(fields) != 1 {
+	if len(fields) > 1 {
 		return func(interface{}) error { return nil },
 			errors.Errorf("querying for primitives can be done for 1 column only, got %d",
 				len(fields))
 	}
-	return ec.db.QueryPrimitive(ctx, q, fields[0], args...)
+	field := ""
+	if len(fields) == 1 {
+		field = fields[0]
+	}
+	return ec.db.QueryPrimitive(ctx, q, field, args...)
 }
 
 // Fetch is a one step version of the Query->fetch typical workflow.
